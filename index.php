@@ -22,19 +22,6 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
     if($structure->encoding == 3) {
         $base64encode = true; // BASE64
     }
-    if( isset($structure->parts) && 
-        isset($structure->parts[0]) && 
-        $structure->parts[0]->encoding == 3) {
-        $base64encode = true; // BASE64
-    }
-    if(isset($structure->parts) && 
-        isset($structure->parts[0]) && 
-        isset($structure->parts[0]->parts) && 
-        isset($structure->parts[0]->parts[0]) && 
-        $structure->parts[0]->parts[0]->encoding == 3) {
-       // this handles parts with inline attachments
-        $base64encode = true; // BASE64
-    }
     $attachments = array();
     $attNames = array();
     if (isset($structure->parts) && count($structure->parts)) {
@@ -88,7 +75,7 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
     if(isset($overview->{'X-Original-To'}) && strstr($overview->{'X-Original-To'}, '+')) {
         $board = strstr(substr($overview->{'X-Original-To'}, strpos($overview->{'X-Original-To'}, '+') + 1), '@', true);
     } else {
-        if(strstr($overview->to[0]->mailbox, '+')) {
+         if(strstr($overview->to[0]->mailbox, '+')) {
             $board = substr($overview->to[0]->mailbox, strpos($overview->to[0]->mailbox, '+') + 1);
         }
     };
@@ -99,8 +86,9 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
     $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
     $data->type = "plain";
     $data->order = -time();
-    $body = $inbox->fetchMessageBody($emails[$j], 1.1);
-    if ($body == "") {
+    $body = $inbox->fetchMessageBody($emails[$j], 1.2);
+
+    if (!strlen($body) > 0) {
         $body = $inbox->fetchMessageBody($emails[$j], 1);
     }
     if(count($attachments)) {
@@ -120,14 +108,29 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
     $mailSender->userId = $overview->reply_to[0]->mailbox;
 
     $newcard = new DeckClass();
-    $response = $newcard->addCard($data, $mailSender, $board);
+    if (strpos($data->title, "RE: ") !== false || strpos($data->title, "Fwd") !== false || strpos($data->title, "FW:") !== false || strpos($data->title, "Re:") !== false) {
+        $cleanedSubject = preg_replace('/^(Re: |RE: |Fwd: |FW: )\s*/i', '', $data->title);
+    }else{
+        $cleanedSubject = $newcard->findOriginalSubject(strip_tags($data->description));
+    }
+
+    $existingCardId = $newcard->findCardBySubject($cleanedSubject);
     $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
 
-    if(MAIL_NOTIFICATION) {
-        if($response) {
-            $inbox->reply($mailSender->origin, $response);
-        } else {
-            $inbox->reply($mailSender->origin);
+    if ($existingCardId) {
+        $cleanedDescription = $newcard->extractForwardedContent($data->description);
+        $response = $newcard->addCommentToCard($existingCardId, $cleanedDescription);
+        error_log("Comment added with response: " . json_encode($response));
+    }else{
+        $response = $newcard->addCard($data, $mailSender->origin);
+        error_log("New card created with response: " . json_encode($response));
+
+        if(MAIL_NOTIFICATION) {
+            if($response) {
+                $inbox->reply($mailSender->origin, $response);
+            } else {
+                $inbox->reply($mailSender->origin);
+            }
         }
     }
     if(!$response) {
