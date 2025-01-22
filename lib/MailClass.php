@@ -83,7 +83,7 @@ class MailClass {
             ];
 
             if($response) {
-                $body = "<p>We received your request and opened a support ticket. You can see it here: <a href=\"" . NC_SERVER . "/apps/deck/board/{$response->board}/card/{$response->id}" . "\">{$response->boardTitle}</a>.</p>"
+                $body = "<p>We received your request and opened a support ticket. You can see it here: <a href=\"" . NC_SERVER . "/index.php/apps/deck/board/{$response->board}/card/{$response->id}" . "\">{$response->boardTitle}</a>.</p>"
                     ."<p>To access the card, you will be asked to login, please use your company usual account details.</p>"
                         ."<p>Please add more details or respond to any comments from our team, so we can address the issue as fast as possible.</p><br><br>"
                         ."<p>Thank you for reaching out.</p><br>"
@@ -99,7 +99,7 @@ class MailClass {
                 $subject = "A new card could not be created!";
             }
 
-            $bodySupport="<p>Card : <a href=\"" . NC_SERVER . "/apps/deck/board/{$response->board}/card/{$response->id}" . "\">Card</a></p>"
+            $bodySupport="<p>Card : <a href=\"" . NC_SERVER . "/index.php/apps/deck/board/{$response->board}/card/{$response->id}" . "\">Card</a></p>"
                 ."<p>Description : {$response->description}</p>"
                 ."<p>Sent by : {$sender} </p>";
 
