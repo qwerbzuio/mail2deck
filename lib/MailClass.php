@@ -99,9 +99,10 @@ class MailClass {
                 $subject = "A new card could not be created!";
             }
 
-            $bodySupport="<p>Card : <a href=\"" . NC_SERVER . "/index.php/apps/deck/board/{$response->board}/card/{$response->id}" . "\">Card</a></p>"
-                ."<p>Description : {$response->description}</p>"
-                ."<p>Sent by : {$sender} </p>";
+            $bodySupport="<p>Card: <a href=\"" . NC_SERVER . "/index.php/apps/deck/board/{$response->board}/card/{$response->id}" . "\">Card</a></p>"
+                ."<p>Title: {$response->title}</p>"
+                ."<p>Description: {$response->description}</p>"
+                ."<p>Sent by: {$sender} </p>";
 
 
             /**
