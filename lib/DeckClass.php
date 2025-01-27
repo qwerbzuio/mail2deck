@@ -21,7 +21,7 @@ class DeckClass {
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => $request,
             CURLOPT_HTTPHEADER => array(
-                'Authorization: Basic ' . base64_encode(NC_USER . ':' . NC_PASSWORD),
+                'Authorization: Basic ' . base64_encode(NC_ADMIN_USER . ':' . NC_ADMIN_PASSWORD),
                 'OCS-APIRequest: true',
             ),
         ));
@@ -33,7 +33,7 @@ class DeckClass {
                     'Accept: application/json',
                     'OCS-APIRequest: true',
                     'Content-Type:  application/json',
-                    'Authorization: Basic ' . base64_encode(NC_USER . ':' . NC_PASSWORD),
+                    'Authorization: Basic ' . base64_encode(NC_ADMIN_USER . ':' . NC_ADMIN_PASSWORD),
                 )
             ));
         }
@@ -146,10 +146,10 @@ class DeckClass {
     //Assign a user to the card
     public function assignUser($card, $mailUser)
     {
-        $adminUser = urlencode(NC_USER);
-        $adminPassword = urlencode(NC_PASSWORD);
+        $adminUser = urlencode(NC_ADMIN_USER);
+        $adminPassword = urlencode(NC_ADMIN_PASSWORD);
 
-        $url = "http://{$adminUser}:{$adminPassword}@" . NC_HOST;
+        $url = "https://{$adminUser}:{$adminPassword}@" . NC_HOST;
         $allUsers= $this->apiCall("GET",$url."/ocs/v1.php/cloud/users", null, false, true); //nextcloud user list
 
         foreach ($allUsers->data->users->element as $userId) {

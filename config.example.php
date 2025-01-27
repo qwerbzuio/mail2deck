@@ -3,6 +3,8 @@ define("NC_SERVER", "localhost"); // https://server.domain (without "https://" a
 define("NC_HOST", "host"); //server.domain
 define("NC_USER", "deckbot");
 define("NC_PASSWORD", "****"); // if your Nextcloud instance uses Two-Factor-Authentication, use generated token here instead of password.
+define("NC_ADMIN_USER", "admin"); // to access the nextcloud users list you need an admin
+define("NC_ADMIN_PASSWORD", "admin");
 define("MAIL_SERVER", "localhost"); // server.domain
 define("MAIL_SERVER_FLAGS", "/novalidate-cert"); // flags needed to connect to server. Refer to https://www.php.net/manual/en/function.imap-open.php for a list of valid flags.
 define("MAIL_SERVER_PORT", "143");
