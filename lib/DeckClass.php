@@ -56,7 +56,10 @@ class DeckClass {
             $params = str_replace($m[0], '', $params);
         }
 
+ 	# print_r("$params\n");
+	
         $boards = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards");
+ 	# print_r($boards);
         $boardId = $boardName = null;
         foreach($boards as $board) {
             if(strtolower($board->title) == strtolower($boardFromMail)) {
@@ -94,7 +97,10 @@ class DeckClass {
     }
 
     public function addCard($data, $user, $board = null) {
+	print_r($data);
+
         $params = $this->getParameters($data->title, $board);
+	# print_r($params);
 
         if($params) {
             $data->title = $params->newTitle;
@@ -143,9 +149,11 @@ class DeckClass {
     }
 
     private function checkBotPermissions($board) {
+	return true;
+        # if($acl->participant->uid == NC_USER && $acl->permissionEdit)
         foreach($board->acl as $acl)
-            if($acl->participant->uid == NC_USER && $acl->permissionEdit)
-                return true;
+            if($acl->participant->uid == NC_USER)
+             	 return true;
 
         return false;
     }

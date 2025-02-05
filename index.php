@@ -1,5 +1,7 @@
 <?php
 error_reporting(E_ERROR | E_PARSE);
+error_reporting(E_ALL);
+ini_set('display_errors', 'on');
 require_once(__DIR__ . '/vendor/autoload.php');
 require_once(__DIR__ . '/config.php');
 
@@ -13,6 +15,7 @@ $emails = $inbox->getNewMessages();
 if(!$emails) {
     // delete all messages marked for deletion and return
     $inbox->expunge();
+    print_r("no mail\n");
     return;
 }
 
@@ -44,15 +47,15 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
                 }
             }
 
-            if ($attachments[$i]['is_attachment']) {
-                $attachments[$i]['attachment'] = $inbox->fetchMessageBody($emails[$j], $i+1);
-                if ($structure->parts[$i]->encoding == 3) { // 3 = BASE64
-                    $attachments[$i]['attachment'] = base64_decode($attachments[$i]['attachment']);
-                }
-                elseif ($structure->parts[$i]->encoding == 4) { // 4 = QUOTED-PRINTABLE
-                    $attachments[$i]['attachment'] = quoted_printable_decode($attachments[$i]['attachment']);
-                }
-            }
+#           if ($attachments[$i]['is_attachment']) {
+#               $attachments[$i]['attachment'] = $inbox->fetchMessageBody($emails[$j], $i+1);
+#               if ($structure->parts[$i]->encoding == 3) { // 3 = BASE64
+#                   $attachments[$i]['attachment'] = base64_decode($attachments[$i]['attachment']);
+#               }
+#               elseif ($structure->parts[$i]->encoding == 4) { // 4 = QUOTED-PRINTABLE
+#                   $attachments[$i]['attachment'] = quoted_printable_decode($attachments[$i]['attachment']);
+#               }
+#           }
         }
     }
     for ($i = 1; $i <= count($attachments); $i++) {
@@ -80,7 +83,8 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
         }
     };
 
-    if(strstr($board, '+')) $board = str_replace('+', ' ', $board);
+    # if(strstr($board, '+')) $board = str_replace('+', ' ', $board);
+    $board = "testboard";
 
     $data = new stdClass();
     $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
@@ -108,7 +112,7 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
 
     $newcard = new DeckClass();
     $response = $newcard->addCard($data, $mailSender, $board);
-    $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
+    # $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
 
     if(MAIL_NOTIFICATION) {
         if($response) {
