@@ -12,6 +12,41 @@ use Mail2Deck\ConvertToMD;
 $inbox = new MailClass();
 $emails = $inbox->getNewMessages();
 
+function get_attachment($part, $inbox, $email) {
+    $attachment = array();
+    $attachment['is_attachment'] = false;
+    if ($part->ifdparameters) {
+        foreach ($part->dparameters as $object) {
+            if (strtolower($object->attribute) == 'filename') {
+                $attachment['is_attachment'] = true;
+                $attachment['filename'] = $object->value;
+		printf("filename: %s\n", $object->value);
+            }
+        }
+    }
+
+    if ($part->ifparameters) {
+        foreach ($part->parameters as $object) {
+            if (strtolower($object->attribute) == 'name') {
+                $attachment['is_attachment'] = true;
+                $attachment['name'] = $object->value;
+            }
+        }
+    }
+
+    if ($attachment['is_attachment']) {
+        # $attachment['attachment'] = $inbox->fetchMessageBody($email, $i+1);
+        $attachment['attachment'] = "";
+        if ($part->encoding == 3) { // 3 = BASE64
+            $attachment['attachment'] = base64_decode($attachment['attachment']);
+        }
+        elseif ($part->encoding == 4) { // 4 = QUOTED-PRINTABLE
+            $attachment['attachment'] = quoted_printable_decode($attachment['attachment']);
+        }
+    }
+    return $attachment;
+}
+
 if(!$emails) {
     // delete all messages marked for deletion and return
     $inbox->expunge();
@@ -28,37 +63,28 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
     $attachments = array();
     $attNames = array();
     if (isset($structure->parts) && count($structure->parts)) {
+    	printf("number of parts: %d\n", count($structure->parts));
         for ($i = 0; $i < count($structure->parts); $i++) {
-            if ($structure->parts[$i]->ifdparameters) {
-                foreach ($structure->parts[$i]->dparameters as $object) {
-                    if (strtolower($object->attribute) == 'filename') {
-                        $attachments[$i]['is_attachment'] = true;
-                        $attachments[$i]['filename'] = $object->value;
-                    }
-                }
-            }
-
-            if ($structure->parts[$i]->ifparameters) {
-                foreach ($structure->parts[$i]->parameters as $object) {
-                    if (strtolower($object->attribute) == 'name') {
-                        $attachments[$i]['is_attachment'] = true;
-                        $attachments[$i]['name'] = $object->value;
-                    }
-                }
-            }
-
-#           if ($attachments[$i]['is_attachment']) {
-#               $attachments[$i]['attachment'] = $inbox->fetchMessageBody($emails[$j], $i+1);
-#               if ($structure->parts[$i]->encoding == 3) { // 3 = BASE64
-#                   $attachments[$i]['attachment'] = base64_decode($attachments[$i]['attachment']);
-#               }
-#               elseif ($structure->parts[$i]->encoding == 4) { // 4 = QUOTED-PRINTABLE
-#                   $attachments[$i]['attachment'] = quoted_printable_decode($attachments[$i]['attachment']);
-#               }
-#           }
+            $attachments[$i]['is_attachment'] = false;
+	    $part = $structure->parts[$i];
+	    if (strtolower($part->subtype) == 'mixed') {
+		$mixedparts = $part->parts;
+	    	printf("number of mixed parts: %d\n", count($mixedparts));
+		print_r($mixedparts);
+		foreach($mixedparts as $part) {
+			if (strtolower($part->subtype) == 'html') {
+    				$body = $inbox->fetchMessageBody($emails[$j], 1.2);
+				break;
+			}
+	    		array_push($attachments, get_attachment($part, $inbox, $emails[$j]));
+		}
+		# stop processing after mixed parts:
+		break;
+	    }
         }
     }
-    for ($i = 1; $i <= count($attachments); $i++) {
+
+    for ($i = 0; $i < count($attachments); $i++) {
         if(! file_exists(getcwd() . '/attachments')) {
             mkdir(getcwd() . '/attachments');
         }
@@ -83,14 +109,14 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
         }
     };
 
-    # if(strstr($board, '+')) $board = str_replace('+', ' ', $board);
-    $board = "testboard";
+    if($board && strstr($board, '+')) $board = str_replace('+', ' ', $board);
 
     $data = new stdClass();
     $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
     $data->type = "plain";
     $data->order = -time();
-    $body = $inbox->fetchMessageBody($emails[$j], 1.1);
+    $data->attachments = null;
+    $body = $inbox->fetchMessageBody($emails[$j], sprintf("%d.%d", 2, 1));
     if ($body == "") {
         $body = $inbox->fetchMessageBody($emails[$j], 1);
     }
@@ -104,11 +130,21 @@ for ($j = 0; $j < count($emails) && $j < 5; $j++) {
         $description = base64_decode($description);
     }
     if($description != strip_tags($description)) {
+	# print_r($description);
+	# print_r(strip_tags($description));
         $description = (new ConvertToMD($description))->execute();
+	$description = strip_tags($description);
+	print_r($description);
     }
     $data->description = $description;
+
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
+
+    # return;
+    continue;
+
+    $board = "testboard";
 
     $newcard = new DeckClass();
     $response = $newcard->addCard($data, $mailSender, $board);

@@ -38,11 +38,14 @@ class DeckClass {
     }
 
     public function getParameters($params, $boardFromMail = null) {// get the board and the stack
-	    if(!$boardFromMail) // if board is not set within the email address, look for board into email subject
-        	if(preg_match('/b-"([^"]+)"/', $params, $m) || preg_match("/b-'([^']+)'/", $params, $m)) {
-            		$boardFromMail = $m[1];
-            		$params = str_replace($m[0], '', $params);
-        	}
+	$stackFromMail = null;
+	$userFromMail = null;
+	$duedateFromMail = null;
+        if(!$boardFromMail) // if board is not set within the email address, look for board into email subject
+            if(preg_match('/b-"([^"]+)"/', $params, $m) || preg_match("/b-'([^']+)'/", $params, $m)) {
+        		$boardFromMail = $m[1];
+        		$params = str_replace($m[0], '', $params);
+            }
         if(preg_match('/s-"([^"]+)"/', $params, $m) || preg_match("/s-'([^']+)'/", $params, $m)) {
             $stackFromMail = $m[1];
             $params = str_replace($m[0], '', $params);
@@ -75,7 +78,7 @@ class DeckClass {
         if($boardId) {
             $stacks = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/$boardId/stacks");
             foreach($stacks as $key => $stack)
-                if(strtolower($stack->title) == strtolower($stackFromMail)) {
+                if($stackFromMail != null && strtolower($stack->title) == strtolower($stackFromMail)) {
                     $stackId = $stack->id;
                     break;
                 }
@@ -89,15 +92,17 @@ class DeckClass {
         $boardStack->stack = $stackId;
         $boardStack->newTitle = $params;
         $boardStack->boardTitle = $boardName;
-        $boardStack->userId = strtolower($userFromMail);
-        $boardStack->dueDate = $duedateFromMail;
-
+        $boardStack->userId = null;
+	if ($userFromMail != null) {
+        	$boardStack->userId = strtolower($userFromMail);
+	}
+      	$boardStack->dueDate = $duedateFromMail;
 
         return $boardStack;
     }
 
     public function addCard($data, $user, $board = null) {
-	print_r($data);
+	# print_r($data);
 
         $params = $this->getParameters($data->title, $board);
 	# print_r($params);

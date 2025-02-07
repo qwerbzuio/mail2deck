@@ -2,3 +2,4 @@ config.php
 vendor/
 .idea/
 attachments/
+*.swp
