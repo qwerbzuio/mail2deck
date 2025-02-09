@@ -38,9 +38,9 @@ class DeckClass {
     }
 
     public function getParameters($params, $boardFromMail = null) {// get the board and the stack
-	$stackFromMail = null;
-	$userFromMail = null;
-	$duedateFromMail = null;
+	    $stackFromMail = null;
+	    $userFromMail = null;
+	    $duedateFromMail = null;
         if(!$boardFromMail) // if board is not set within the email address, look for board into email subject
             if(preg_match('/b-"([^"]+)"/', $params, $m) || preg_match("/b-'([^']+)'/", $params, $m)) {
         		$boardFromMail = $m[1];
@@ -59,10 +59,7 @@ class DeckClass {
             $params = str_replace($m[0], '', $params);
         }
 
- 	# print_r("$params\n");
-	
         $boards = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards");
- 	# print_r($boards);
         $boardId = $boardName = null;
         foreach($boards as $board) {
             if(strtolower($board->title) == strtolower($boardFromMail)) {
@@ -93,19 +90,16 @@ class DeckClass {
         $boardStack->newTitle = $params;
         $boardStack->boardTitle = $boardName;
         $boardStack->userId = null;
-	if ($userFromMail != null) {
-        	$boardStack->userId = strtolower($userFromMail);
-	}
-      	$boardStack->dueDate = $duedateFromMail;
-
+    	if ($userFromMail != null) {
+            $boardStack->userId = strtolower($userFromMail);
+    	}
+        $boardStack->dueDate = $duedateFromMail;
+    
         return $boardStack;
     }
 
     public function addCard($data, $user, $board = null) {
-	# print_r($data);
-
         $params = $this->getParameters($data->title, $board);
-	# print_r($params);
 
         if($params) {
             $data->title = $params->newTitle;
@@ -126,6 +120,10 @@ class DeckClass {
             return $card;
         }
         return false;
+    }
+
+    public function deleteCards($board, $stack) {
+
     }
 
     private function addAttachments($card, $attachments) {
