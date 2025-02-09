@@ -12,16 +12,19 @@ use Mail2Deck\ConvertToMD;
 $inbox = new MailClass();
 $emails = $inbox->getNewMessages();
 
-function get_attachment($part, $inbox, $email)
+function get_attachment($part, $parttext)
 {
-    $attachment = array();
-    $attachment['is_attachment'] = false;
+    $attachment = array(
+        'is_attachment' => false,
+        'filename' => '',
+        'name' => '',
+        'attachment' => ''
+    );
     if ($part->ifdparameters) {
         foreach ($part->dparameters as $object) {
             if (strtolower($object->attribute) == 'filename') {
                 $attachment['is_attachment'] = true;
                 $attachment['filename'] = $object->value;
-                printf("filename: %s\n", $object->value);
             }
         }
     }
@@ -36,14 +39,9 @@ function get_attachment($part, $inbox, $email)
     }
 
     if ($attachment['is_attachment']) {
-        # $attachment['attachment'] = $inbox->fetchMessageBody($email, $i+1);
-        $attachment['attachment'] = "";
-        if ($part->encoding == 3) { // 3 = BASE64
-            $attachment['attachment'] = base64_decode($attachment['attachment']);
-        } elseif ($part->encoding == 4) { // 4 = QUOTED-PRINTABLE
-            $attachment['attachment'] = quoted_printable_decode($attachment['attachment']);
-        }
+        $attachment['attachment'] = $parttext;
     }
+
     return $attachment;
 }
 
@@ -56,18 +54,16 @@ if (!$emails) {
 
 $bunchsize = 5;
 
-for ($j = 0; $j < count($emails) && $j < $bunchsize; $j++) {
-    $structure = $inbox->fetchMessageStructure($emails[$j]);
-    $base64encode = false;
-    if ($structure->encoding == 3) {
-        $base64encode = true; // BASE64
-    }
+for ($iemail = 0; $iemail < count($emails) && $iemail < $bunchsize; $iemail++) {
+    $email = $emails[$iemail];
+    $structure = $inbox->fetchMessageStructure($email);
     $attachments = array();
     $attNames = array();
     $body = "";
     if (isset($structure->parts) && count($structure->parts)) {
         $nparts = count($structure->parts);
         if ($nparts > 2) {
+            print("nparts > 2\n");
             # Error
         }
         for ($ipart = 0; $ipart < $nparts; $ipart++) {
@@ -77,11 +73,11 @@ for ($j = 0; $j < count($emails) && $j < $bunchsize; $j++) {
                 $mixedparts = $part->parts;
                 $nmixedparts = count($mixedparts);
                 for ($imixed = 0; $imixed < $nmixedparts; ++$imixed) {
-                    $parttext = $inbox->fetchMessageBody($emails[$j], sprintf("%d.%d", $ipart, $imixed));
-                    print($parttext);
-                    $parttext = DECODE_SPECIAL_CHARACTERS ? quoted_printable_decode($parttext) : $parttext;
-                    if ($base64encode) {
+                    $parttext = $inbox->fetchMessageBody($email, sprintf("%d.%d", $ipart + 1, $imixed + 1));
+                    if ($part->encoding == 3) { // 3 = BASE64
                         $parttext = base64_decode($parttext);
+                    } elseif ($part->encoding == 4) { // 4 = QUOTED-PRINTABLE
+                        $parttext = DECODE_SPECIAL_CHARACTERS ? quoted_printable_decode($parttext) : $parttext;
                     }
                     $subtype = strtolower($mixedparts[$imixed]->subtype);
                     if ($subtype == 'html') {
@@ -90,7 +86,7 @@ for ($j = 0; $j < count($emails) && $j < $bunchsize; $j++) {
                     } else if ($subtype == 'plain') {
                         $body .= $parttext;
                     } else {
-                        // array_push($attachments, get_attachment($mixedparts[$imixed], $inbox, $emails[$j]));
+                        array_push($attachments, get_attachment($mixedparts[$imixed], $parttext));
                     }
                 }
                 # stop processing after mixed parts:
@@ -98,68 +94,55 @@ for ($j = 0; $j < count($emails) && $j < $bunchsize; $j++) {
             }
         }
     }
+    if ($body == "") {
+        print("Empty body\n");
+        $body = $inbox->fetchMessageBody($email, 1);
+    }
 
-    for ($i = 0; $i < count($attachments); $i++) {
+    continue;
+
+    foreach ($attachments as $attachment) {
         if (! file_exists(getcwd() . '/attachments')) {
             mkdir(getcwd() . '/attachments');
         }
-        if ($attachments[$i]['is_attachment'] == 1) {
-            $filename = $attachments[$i]['name'];
-            if (empty($filename)) $filename = $attachments[$i]['filename'];
+        if ($attachment['is_attachment'] == 1) {
+            $filename = $attachment['name'];
+            if (empty($filename)) $filename = $attachment['filename'];
 
-            $fp = fopen(getcwd() . '/attachments/' . $filename, "w+");
-            fwrite($fp, $attachments[$i]['attachment']);
+            $fp = fopen(getcwd() . '/attachments/' . $filename, "w");
+            fwrite($fp, $attachment['attachment']);
             fclose($fp);
-            array_push($attNames, $attachments[$i]['filename']);
+            array_push($attNames, $attachment['filename']);
         }
     }
 
-    $overview = $inbox->headerInfo($emails[$j]);
+    $overview = $inbox->headerInfo($email);
     $board = null;
     if (isset($overview->{'X-Original-To'}) && strstr($overview->{'X-Original-To'}, '+')) {
         $board = strstr(substr($overview->{'X-Original-To'}, strpos($overview->{'X-Original-To'}, '+') + 1), '@', true);
-    } else {
-        if (strstr($overview->to[0]->mailbox, '+')) {
-            $board = substr($overview->to[0]->mailbox, strpos($overview->to[0]->mailbox, '+') + 1);
-        }
+    } else if (strstr($overview->to[0]->mailbox, '+')) {
+        $board = substr($overview->to[0]->mailbox, strpos($overview->to[0]->mailbox, '+') + 1);
     };
-
-    print($body);
 
     $data = new stdClass();
     $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
     $data->type = "plain";
     $data->order = -time();
+    $data->description = $body;
     $data->attachments = null;
-    # $body = $inbox->fetchMessageBody($emails[$j], sprintf("%d.%d", 2, 1));
-    if ($body == "") {
-        $body = $inbox->fetchMessageBody($emails[$j], 1);
-    }
     if (count($attachments)) {
         $data->attachments = $attNames;
     }
 
-    # print($body);
-
-    $description = DECODE_SPECIAL_CHARACTERS ? quoted_printable_decode($body) : $body;
-    if ($base64encode) {
-        $description = base64_decode($description);
-    }
-    if ($description != strip_tags($description)) {
-        $description = (new ConvertToMD($description))->execute();
-    }
-    $data->description = $description;
-
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
-
-    continue;
 
     $board = "testboard";
 
     $newcard = new DeckClass();
     $response = $newcard->addCard($data, $mailSender, $board);
-    print_r($response);
+
+    # print_r($response);
     # $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
 
     if (MAIL_NOTIFICATION) {
@@ -169,12 +152,13 @@ for ($j = 0; $j < count($emails) && $j < $bunchsize; $j++) {
             $inbox->reply($mailSender->origin);
         }
     }
+
     if (!$response) {
         foreach ($attNames as $attachment) unlink(getcwd() . "/attachments/" . $attachment);
     }
 
     //remove email after processing
     if (DELETE_MAIL_AFTER_PROCESSING) {
-        $inbox->delete($emails[$j]);
+        $inbox->delete($email);
     }
 }
