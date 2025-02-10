@@ -14,7 +14,7 @@ $emails = $inbox->getNewMessages();
 
 function get_part($inbox, $email, $part_id_array)
 {
-    $attachment = array(
+    $content = array(
         'is_attachment' => false,
         'filename' => '',
         'name' => '',
@@ -42,7 +42,7 @@ function get_part($inbox, $email, $part_id_array)
         $subtype = strtolower($part->subtype);
     } else {
         print("Error\n");
-        return $attachment;
+        return $content;
     }
 
     if ($subtype == 'html') {
@@ -52,8 +52,8 @@ function get_part($inbox, $email, $part_id_array)
     if ($part->ifdparameters) {
         foreach ($part->dparameters as $object) {
             if (strtolower($object->attribute) == 'filename') {
-                $attachment['is_attachment'] = true;
-                $attachment['filename'] = $object->value;
+                $content['is_attachment'] = true;
+                $content['filename'] = $object->value;
             }
         }
     }
@@ -61,15 +61,15 @@ function get_part($inbox, $email, $part_id_array)
     if ($part->ifparameters) {
         foreach ($part->parameters as $object) {
             if (strtolower($object->attribute) == 'name') {
-                $attachment['is_attachment'] = true;
-                $attachment['name'] = $object->value;
+                $content['is_attachment'] = true;
+                $content['name'] = $object->value;
             }
         }
     }
 
-    $attachment['content'] = $parttext;
+    $content['content'] = $parttext;
 
-    return $attachment;
+    return $content;
 }
 
 function process_parts($inbox, $email, $part_id_array = array())
@@ -82,16 +82,17 @@ function process_parts($inbox, $email, $part_id_array = array())
     }
 
     $subtype = strtolower($part->subtype);
-    printf("Processing %s part: %s\n", $subtype, join(".", $part_id_array));
+    # printf("Processing %s part: %s\n", $subtype, join(".", $part_id_array));
     if ($subtype == 'mixed' || $subtype == 'related') {
         $nparts = count($part->parts);
         for ($imixed = 0; $imixed < $nparts; ++$imixed) { # process all subparts
             $subpart_id_array = $part_id_array;
             array_push($subpart_id_array, $imixed);
-            array_merge($contents, process_parts($inbox, $email, $subpart_id_array));
+            $contents = array_merge($contents, process_parts($inbox, $email, $subpart_id_array));
         }
-    } elseif ($subtype == 'alternative') { # select last part
-        $lastpart = count($part->parts) - 1;
+    } elseif ($subtype == 'alternative') {
+        $lastpart = count($part->parts) - 1; # select only last part
+        # $lastpart = 0;
         array_push($part_id_array, $lastpart);
         $contents = process_parts($inbox, $email, $part_id_array);
     } else {
@@ -108,15 +109,16 @@ if (!$emails) {
     return;
 }
 
-$bunchsize = 2;
+$startmail = 4;
+$bunchsize = 1;
 
-for ($iemail = 1; $iemail < count($emails) && $iemail < $bunchsize; $iemail++) {
+for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
     $email = $emails[$iemail];
     $overview = $inbox->headerInfo($email);
 
     $part = $inbox->fetchMessageStructure($email);
 
-    $parts = process_parts($inbox, $email);
+    $contents = process_parts($inbox, $email);
 
     $data = new stdClass();
     $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
@@ -125,20 +127,20 @@ for ($iemail = 1; $iemail < count($emails) && $iemail < $bunchsize; $iemail++) {
     $data->description = "";
     $data->attachments = array();
 
-    foreach ($parts as $part) {
-        if ($part['is_attachment']) {
+    foreach ($contents as $content) {
+        if ($content['is_attachment']) {
             if (! file_exists(getcwd() . '/attachments')) {
                 mkdir(getcwd() . '/attachments');
             }
-            $filename = $part['name'];
-            if (empty($filename)) $filename = $part['filename'];
+            $filename = $content['name'];
+            if (empty($filename)) $filename = $content['filename'];
 
             $fp = fopen(getcwd() . '/attachments/' . $filename, "w");
-            fwrite($fp, $part['content']);
+            fwrite($fp, $content['content']);
             fclose($fp);
-            array_push($data->attachments, $part['filename']);
+            array_push($data->attachments, $content['filename']);
         } else {
-            $data->description .= $part['content'];
+            $data->description .= $content['content'];
         }
     }
 
@@ -149,9 +151,8 @@ for ($iemail = 1; $iemail < count($emails) && $iemail < $bunchsize; $iemail++) {
         $board = substr($overview->to[0]->mailbox, strpos($overview->to[0]->mailbox, '+') + 1);
     };
 
-    # printf("%s\n", $data->title);
-    print_r($data->description);
-    continue;
+    # print_r($data->description);
+    # continue;
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
