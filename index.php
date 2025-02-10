@@ -72,50 +72,33 @@ function get_part($inbox, $email, $part_id_array)
     return $attachment;
 }
 
-function process_parts($inbox, $email, $part, $part_id_array = array())
+function process_parts($inbox, $email, $part_id_array = array())
 {
-    $attachments = array();
+    $contents = array();
 
+    $part = $inbox->fetchMessageStructure($email);
     foreach ($part_id_array as $ipart) { # select subpart
-        $nparts = count($part->parts);
-        printf("key: %d, nparts: %d\n", $ipart, $nparts);
         $part = $part->parts[$ipart];
     }
 
-    if (! $part) {
-        return $attachments;
-    }
-
-    if (property_exists($part, "subtype")) {
-        $subtype = strtolower($part->subtype);
-    } else if (property_exists($part, "type")) {
-        $subtype = strtolower($part->subtype);
-    } else {
-        print("Error\n");
-        return $attachments;
-    }
-    printf("%s\n", $subtype);
+    $subtype = strtolower($part->subtype);
+    printf("Processing %s part: %s\n", $subtype, join(".", $part_id_array));
     if ($subtype == 'mixed' || $subtype == 'related') {
-        printf("Processing mixed for part: %s\n", join(".", $part_id_array));
         $nparts = count($part->parts);
         for ($imixed = 0; $imixed < $nparts; ++$imixed) { # process all subparts
             $subpart_id_array = $part_id_array;
             array_push($subpart_id_array, $imixed);
-            $subpart = $part;
-            array_merge($attachments, process_parts($inbox, $email, $subpart, $subpart_id_array));
+            array_merge($contents, process_parts($inbox, $email, $subpart_id_array));
         }
     } elseif ($subtype == 'alternative') { # select last part
-        $subpart_id_array = $part_id_array;
-        printf("Processing alternative part: %s\n", join(".", $subpart_id_array));
         $lastpart = count($part->parts) - 1;
-        array_push($subpart_id_array, $lastpart);
-        $attachments = process_parts($inbox, $email, $part, $subpart_id_array);
+        array_push($part_id_array, $lastpart);
+        $contents = process_parts($inbox, $email, $part_id_array);
     } else {
-        printf("Processing content: %s\n", join(".", $part_id_array));
-        array_push($attachments, get_part($inbox, $email, $part_id_array));
+        array_push($contents, get_part($inbox, $email, $part_id_array));
     }
 
-    return $attachments;
+    return $contents;
 }
 
 if (!$emails) {
@@ -132,9 +115,8 @@ for ($iemail = 1; $iemail < count($emails) && $iemail < $bunchsize; $iemail++) {
     $overview = $inbox->headerInfo($email);
 
     $part = $inbox->fetchMessageStructure($email);
-    print_r($part);
 
-    $parts = process_parts($inbox, $email, $part);
+    $parts = process_parts($inbox, $email);
 
     $data = new stdClass();
     $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
