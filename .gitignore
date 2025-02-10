@@ -3,3 +3,4 @@ vendor/
 .idea/
 attachments/
 *.swp
+.DS_Store
