@@ -61,7 +61,6 @@ function get_part($inbox, $email, $part_id_array)
     $subtype = strtolower($part->subtype);
 
     if ($subtype == 'html') {
-        // print_r($parttext);
         $parttext = mb_convert_encoding($parttext, "UTF-8", $encoding);
         preg_match('/<body[^>]*>(.*?)<\/body>/is', $parttext, $matches);
         if ($matches) {
@@ -74,7 +73,6 @@ function get_part($inbox, $email, $part_id_array)
         $lines = explode("\n", $parttext);
         $lines = array_slice($lines, -$nlines);
         $parttext = implode("\n", $lines);
-        print("============================================ plain =========================\n");
     }
 
     $content['content'] = $parttext;
@@ -122,17 +120,14 @@ if (!$emails) {
     return;
 }
 
-$startmail = 96;
+$startmail = 1;
 $bunchsize = 1;
 
 for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
-    print($iemail);
     $email = $emails[$iemail];
     $overview = $inbox->headerInfo($email);
-    // print_r($overview);
 
     $part = $inbox->fetchMessageStructure($email);
-    // print_r($part);
 
     $contents = process_parts($inbox, $email);
 
@@ -178,7 +173,6 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $mailSender->userId = $overview->reply_to[0]->mailbox;
 
     $board = "testboard";
-    // print_r($data);
 
     $newcard = new DeckClass();
     $response = $newcard->addCard($data, $mailSender, $board);
