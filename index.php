@@ -22,7 +22,7 @@ function get_part($inbox, $email, $part_id_array)
     );
 
     $part = $inbox->fetchMessageStructure($email);
-    foreach ($part_id_array as $ipart) { # select subpart
+    foreach ($part_id_array as $ipart) { // select subpart
         $part = $part->parts[$ipart];
     }
 
@@ -45,8 +45,17 @@ function get_part($inbox, $email, $part_id_array)
         return $content;
     }
 
-    if ($subtype == 'html') {
-        $parttext = (new ConvertToMD($parttext))->execute();
+    $encoding = 'UTF-8';
+    if ($part->ifparameters) {
+        foreach ($part->parameters as $object) {
+            $attribute = strtolower($object->attribute);
+            if ($attribute == 'name') {
+                $content['is_attachment'] = true;
+                $content['name'] = $object->value;
+            } elseif ($attribute == 'charset') {
+                $encoding = $object->value;
+            }
+        }
     }
 
     if ($part->ifdparameters) {
@@ -58,13 +67,16 @@ function get_part($inbox, $email, $part_id_array)
         }
     }
 
-    if ($part->ifparameters) {
-        foreach ($part->parameters as $object) {
-            if (strtolower($object->attribute) == 'name') {
-                $content['is_attachment'] = true;
-                $content['name'] = $object->value;
-            }
+    if ($subtype == 'html') {
+        // print_r($parttext);
+        $parttext = mb_convert_encoding($parttext, "UTF-8", $encoding);
+        preg_match('/<body[^>]*>(.*?)<\/body>/is', $parttext, $matches);
+        if ($matches) {
+            $parttext = $matches[1];
         }
+        $parttext = (new ConvertToMD($parttext))->execute();
+    } elseif ($subtype == 'plain') {
+        print("============================================ plain =========================\n");
     }
 
     $content['content'] = $parttext;
@@ -77,22 +89,26 @@ function process_parts($inbox, $email, $part_id_array = array())
     $contents = array();
 
     $part = $inbox->fetchMessageStructure($email);
-    foreach ($part_id_array as $ipart) { # select subpart
+    foreach ($part_id_array as $ipart) { // select subpart
         $part = $part->parts[$ipart];
     }
 
     $subtype = strtolower($part->subtype);
-    # printf("Processing %s part: %s\n", $subtype, join(".", $part_id_array));
+    // printf("Processing %s part: %s\n", $subtype, join(".", $part_id_array));
     if ($subtype == 'mixed' || $subtype == 'related') {
         $nparts = count($part->parts);
-        for ($imixed = 0; $imixed < $nparts; ++$imixed) { # process all subparts
+        for ($imixed = 0; $imixed < $nparts; ++$imixed) { // process all subparts
             $subpart_id_array = $part_id_array;
             array_push($subpart_id_array, $imixed);
-            $contents = array_merge($contents, process_parts($inbox, $email, $subpart_id_array));
+            $subcontents = process_parts($inbox, $email, $subpart_id_array);
+            // ignore inline-attachment parts (cannot be rendered in markdown)
+            $subcontents = array_filter($subcontents, function ($content) {
+                return !$content['is_attachment'];
+            });
+            $contents = array_merge($contents, $subcontents);
         }
     } elseif ($subtype == 'alternative') {
-        $lastpart = count($part->parts) - 1; # select only last part
-        # $lastpart = 0;
+        $lastpart = count($part->parts) - 1; // select only last part
         array_push($part_id_array, $lastpart);
         $contents = process_parts($inbox, $email, $part_id_array);
     } else {
@@ -109,8 +125,8 @@ if (!$emails) {
     return;
 }
 
-$startmail = 4;
-$bunchsize = 1;
+$startmail = 9;
+$bunchsize = 100;
 
 for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
     $email = $emails[$iemail];
@@ -144,6 +160,10 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
         }
     }
 
+    // add fromadress on top
+    $fromadress = $overview->fromaddress;
+    $data->description = sprintf("From: %s\n\n%s", $fromadress, $data->description);
+
     $board = null;
     if (isset($overview->{'X-Original-To'}) && strstr($overview->{'X-Original-To'}, '+')) {
         $board = strstr(substr($overview->{'X-Original-To'}, strpos($overview->{'X-Original-To'}, '+') + 1), '@', true);
@@ -151,19 +171,19 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
         $board = substr($overview->to[0]->mailbox, strpos($overview->to[0]->mailbox, '+') + 1);
     };
 
-    # print_r($data->description);
-    # continue;
+    continue;
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
 
     $board = "testboard";
+    // print_r($data);
 
     $newcard = new DeckClass();
     $response = $newcard->addCard($data, $mailSender, $board);
 
-    # print_r($response);
-    # $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
+    // print_r($response);
+    // $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
 
     if (MAIL_NOTIFICATION) {
         if ($response) {
