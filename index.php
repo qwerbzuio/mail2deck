@@ -158,7 +158,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     // add fromadress on top
     $from = $overview->from[0];
     $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
-    $data->description = sprintf("(From: %s)\n\n%s", $fromaddress, $data->description);
+    $data->description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $data->description);
 
     // continue;
 
