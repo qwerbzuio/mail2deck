@@ -160,13 +160,6 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
     $data->description = sprintf("(From: %s)\n\n%s", $fromaddress, $data->description);
 
-    $board = null;
-    if (isset($overview->{'X-Original-To'}) && strstr($overview->{'X-Original-To'}, '+')) {
-        $board = strstr(substr($overview->{'X-Original-To'}, strpos($overview->{'X-Original-To'}, '+') + 1), '@', true);
-    } else if (strstr($overview->to[0]->mailbox, '+')) {
-        $board = substr($overview->to[0]->mailbox, strpos($overview->to[0]->mailbox, '+') + 1);
-    };
-
     // continue;
 
     $mailSender = new stdClass();
