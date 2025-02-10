@@ -36,15 +36,6 @@ function get_part($inbox, $email, $part_id_array)
         $parttext = DECODE_SPECIAL_CHARACTERS ? quoted_printable_decode($parttext) : $parttext;
     }
 
-    if (property_exists($part, "subtype")) {
-        $subtype = strtolower($part->subtype);
-    } else if (property_exists($part, "type")) {
-        $subtype = strtolower($part->subtype);
-    } else {
-        print("Error\n");
-        return $content;
-    }
-
     $encoding = 'UTF-8';
     if ($part->ifparameters) {
         foreach ($part->parameters as $object) {
@@ -67,6 +58,8 @@ function get_part($inbox, $email, $part_id_array)
         }
     }
 
+    $subtype = strtolower($part->subtype);
+
     if ($subtype == 'html') {
         // print_r($parttext);
         $parttext = mb_convert_encoding($parttext, "UTF-8", $encoding);
@@ -76,6 +69,11 @@ function get_part($inbox, $email, $part_id_array)
         }
         $parttext = (new ConvertToMD($parttext))->execute();
     } elseif ($subtype == 'plain') {
+        $parttext = mb_convert_encoding($parttext, "UTF-8", $encoding);
+        $nlines = $part->lines;
+        $lines = explode("\n", $parttext);
+        $lines = array_slice($lines, -$nlines);
+        $parttext = implode("\n", $lines);
         print("============================================ plain =========================\n");
     }
 
@@ -94,7 +92,6 @@ function process_parts($inbox, $email, $part_id_array = array())
     }
 
     $subtype = strtolower($part->subtype);
-    // printf("Processing %s part: %s\n", $subtype, join(".", $part_id_array));
     if ($subtype == 'mixed' || $subtype == 'related') {
         $nparts = count($part->parts);
         for ($imixed = 0; $imixed < $nparts; ++$imixed) { // process all subparts
@@ -125,14 +122,17 @@ if (!$emails) {
     return;
 }
 
-$startmail = 9;
-$bunchsize = 100;
+$startmail = 96;
+$bunchsize = 1;
 
 for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
+    print($iemail);
     $email = $emails[$iemail];
     $overview = $inbox->headerInfo($email);
+    // print_r($overview);
 
     $part = $inbox->fetchMessageStructure($email);
+    // print_r($part);
 
     $contents = process_parts($inbox, $email);
 
@@ -161,8 +161,9 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     }
 
     // add fromadress on top
-    $fromadress = $overview->fromaddress;
-    $data->description = sprintf("From: %s\n\n%s", $fromadress, $data->description);
+    $from = $overview->from[0];
+    $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
+    $data->description = sprintf("(From: %s)\n\n%s", $fromaddress, $data->description);
 
     $board = null;
     if (isset($overview->{'X-Original-To'}) && strstr($overview->{'X-Original-To'}, '+')) {
@@ -171,7 +172,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
         $board = substr($overview->to[0]->mailbox, strpos($overview->to[0]->mailbox, '+') + 1);
     };
 
-    continue;
+    // continue;
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
