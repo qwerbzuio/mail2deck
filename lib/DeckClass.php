@@ -39,6 +39,27 @@ class DeckClass {
         return json_decode($response);
     }
 
+    public function getStackID($boardName, $stackName) {
+        $boards = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards");
+        $boardId = null;
+        foreach($boards as $board) {
+            if(strtolower($board->title) == strtolower($boardName)) {
+                if(!$this->checkBotPermissions($board)) {
+                    return false;
+                }
+                $boardId = $board->id;
+                break;
+            }
+        }
+        $stacks = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/$boardId/stacks");
+        foreach($stacks as $key => $stack) {
+            if(strtolower($stack->title) == strtolower($stackName)) {
+                return $stack->id;
+            }
+        }
+        return null;
+    }
+
     public function getParameters($params, $boardFromMail = null) {// get the board and the stack
 	    $stackFromMail = null;
 	    $userFromMail = null;
@@ -100,7 +121,7 @@ class DeckClass {
         return $boardStack;
     }
 
-    public function addCard($data, $user, $board = null) {
+    public function addCard($data, $user, $board, $stackid) {
         $params = $this->getParameters($data->title, $board);
         # printf("%s\n", $board);
         # print_r($data);
@@ -109,12 +130,12 @@ class DeckClass {
         if($params) {
             $data->title = $params->newTitle;
             $data->duedate = $params->dueDate;
-            $card = $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$params->stack}/cards", $data);
+            $card = $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}/cards", $data);
             if (! $card){
                 throw new Exception(sprintf("Could not access board '%s'", $params->boardTitle));
             }
             $card->board = $params->board;
-            $card->stack = $params->stack;
+            $card->stack = $stackid;
 
             if ($params->userId) $user->userId = $params->userId;
             

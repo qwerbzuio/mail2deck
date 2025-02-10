@@ -166,9 +166,11 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $mailSender->userId = $overview->reply_to[0]->mailbox;
 
     $board = "testboard";
+    $stack = "anhören";
 
     $newcard = new DeckClass();
-    $response = $newcard->addCard($data, $mailSender, $board);
+    $stackid = $newcard->getStackID($board, $stack);
+    $response = $newcard->addCard($data, $mailSender, $board, $stackid);
 
     // print_r($response);
     // $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
