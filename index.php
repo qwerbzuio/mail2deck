@@ -180,6 +180,20 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $email = $emails[$iemail];
     $overview = $inbox->headerInfo($email);
 
+    $datestamp = strtotime($overview->date);
+    if (FILTER_DATE_BEGIN){
+        if ($datestamp < strtotime(FILTER_DATE_BEGIN)){
+            printf("Skipping too old mail from %s\n", $overview->date);
+            continue;
+        }
+    }
+    if (FILTER_DATE_END){
+        if ($datestamp > strtotime(FILTER_DATE_END)){
+            printf("Skipping too new mail from %s\n", $overview->date);
+            continue;
+        }
+    }
+
     $part = $inbox->fetchMessageStructure($email);
 
     $contents = process_parts($inbox, $email);

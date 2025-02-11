@@ -15,3 +15,5 @@ define("DELETE_MAIL_AFTER_PROCESSING", true);
 define("IGNORE_INLINE_ATTACHMENTS", false); // if true, inline attachments will be dropped (cannot be rendered inline)
 define("DEFAULT_BOARD_NAME", "testboard");
 define("DEFAULT_DECK_NAME", "anhören");
+define("FILTER_DATE_BEGIN", ""); // skip mails older than this (e.g. 2024-01-01)
+define("FILTER_DATE_END", ""); // skip mails newer than this (e.g. 2024-01-01)
