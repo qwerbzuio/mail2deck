@@ -132,7 +132,7 @@ class DeckClass {
             $data->duedate = $params->dueDate;
             $card = $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}/cards", $data);
             if (! $card){
-                throw new Exception(sprintf("Could not access board '%s'", $params->boardTitle));
+                throw new Exception(sprintf("Could not create card on board '%s'", $params->boardTitle));
             }
             $card->board = $params->board;
             $card->stack = $stackid;

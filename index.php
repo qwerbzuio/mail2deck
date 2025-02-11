@@ -12,13 +12,14 @@ use Mail2Deck\ConvertToMD;
 $inbox = new MailClass();
 $emails = $inbox->getNewMessages();
 
-function get_part($inbox, $email, $part_id_array)
+function get_part($inbox, $email, $part_id_array, $is_alternative)
 {
     $content = array(
         'is_attachment' => false,
         'filename' => '',
         'name' => '',
-        'content' => ''
+        'content' => '',
+        'alternative' => '',
     );
 
     $part = $inbox->fetchMessageStructure($email);
@@ -75,12 +76,16 @@ function get_part($inbox, $email, $part_id_array)
         $parttext = implode("\n", $lines);
     }
 
-    $content['content'] = $parttext;
+    if ($is_alternative) {
+        $content['alternative'] = $parttext;
+    } else {
+        $content['content'] = $parttext;
+    }
 
     return $content;
 }
 
-function process_parts($inbox, $email, $part_id_array = array())
+function process_parts($inbox, $email, $part_id_array = array(), $is_alternative = false)
 {
     $contents = array();
 
@@ -96,21 +101,69 @@ function process_parts($inbox, $email, $part_id_array = array())
             $subpart_id_array = $part_id_array;
             array_push($subpart_id_array, $imixed);
             $subcontents = process_parts($inbox, $email, $subpart_id_array);
-            // ignore inline-attachment parts (cannot be rendered in markdown)
-            $subcontents = array_filter($subcontents, function ($content) {
-                return !$content['is_attachment'];
-            });
+            if (IGNORE_INLINE_ATTACHMENTS) {
+                // ignore inline-attachment parts (cannot be rendered in markdown)
+                $subcontents = array_filter($subcontents, function ($content) {
+                    return !$content['is_attachment'];
+                });
+            }
             $contents = array_merge($contents, $subcontents);
         }
     } elseif ($subtype == 'alternative') {
         $lastpart = count($part->parts) - 1; // select only last part
-        array_push($part_id_array, $lastpart);
-        $contents = process_parts($inbox, $email, $part_id_array);
+        $last_part_id_array = $part_id_array;
+        array_push($last_part_id_array, $lastpart);
+        $contents = process_parts($inbox, $email, $last_part_id_array);
+        // set first part as alternative
+        $first_part_id_array = $part_id_array;
+        array_push($first_part_id_array, 0);
+        $contents = process_parts($inbox, $email, $first_part_id_array, true);
     } else {
-        array_push($contents, get_part($inbox, $email, $part_id_array));
+        array_push($contents, get_part($inbox, $email, $part_id_array, $is_alternative));
     }
 
     return $contents;
+}
+
+function extract_attachments($contents)
+{
+    $attachments = array();
+    foreach ($contents as $content) {
+        if (!$content['is_attachment']) {
+            continue;
+        }
+        if (! file_exists(getcwd() . '/attachments')) {
+            mkdir(getcwd() . '/attachments');
+        }
+        $filename = $content['name'];
+        if (empty($filename)) $filename = $content['filename'];
+
+        $fp = fopen(getcwd() . '/attachments/' . $filename, "w");
+        fwrite($fp, $content['content']);
+        fclose($fp);
+        array_push($attachments, $content['filename']);
+    }
+    return $attachments;
+}
+
+function extract_description($contents, $fromaddress, $is_alternative)
+{
+    $description = "";
+    foreach ($contents as $content) {
+        if ($content['is_attachment']) {
+            continue;
+        }
+        if ($is_alternative) {
+            print("alternative\n");
+            $description .= $content['alternative'];
+        } else {
+            print("nonalternative\n");
+            $description .= $content['content'];
+        }
+    }
+    $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
+    print_r($description);
+    return $description;
 }
 
 if (!$emails) {
@@ -120,10 +173,11 @@ if (!$emails) {
     return;
 }
 
-$startmail = 1;
+$startmail = 0;
 $bunchsize = 1;
 
 for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
+    printf("%d\n", $iemail);
     $email = $emails[$iemail];
     $overview = $inbox->headerInfo($email);
 
@@ -136,41 +190,30 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $data->type = "plain";
     $data->order = -time();
     $data->description = "";
-    $data->attachments = array();
-
-    foreach ($contents as $content) {
-        if ($content['is_attachment']) {
-            if (! file_exists(getcwd() . '/attachments')) {
-                mkdir(getcwd() . '/attachments');
-            }
-            $filename = $content['name'];
-            if (empty($filename)) $filename = $content['filename'];
-
-            $fp = fopen(getcwd() . '/attachments/' . $filename, "w");
-            fwrite($fp, $content['content']);
-            fclose($fp);
-            array_push($data->attachments, $content['filename']);
-        } else {
-            $data->description .= $content['content'];
-        }
-    }
+    $data->attachments = extract_attachments($contents);
 
     // add fromadress on top
     $from = $overview->from[0];
     $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
-    $data->description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $data->description);
-
-    // continue;
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
 
-    $board = "testboard";
-    $stack = "anhören";
+    $board = DEFAULT_BOARD_NAME;
+    $stack = DEFAULT_DECK_NAME;
 
     $newcard = new DeckClass();
     $stackid = $newcard->getStackID($board, $stack);
-    $response = $newcard->addCard($data, $mailSender, $board, $stackid);
+
+    try {
+        $data->description = extract_description($contents, $fromaddress, false);
+        $response = $newcard->addCard($data, $mailSender, $board, $stackid);
+    } catch (Exception $e) {
+        print_r($e);
+        print("\nFailed to create card. Trying with plain text message.");
+        $data->description = extract_description($contents, $fromaddress, false);
+        $response = $newcard->addCard($data, $mailSender, $board, $stackid);
+    }
 
     // print_r($response);
     // $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
