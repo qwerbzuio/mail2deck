@@ -192,7 +192,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
         }
     }
     if (FILTER_DATE_END) {
-        if ($datestamp > strtotime(FILTER_DATE_END)) {
+        if ($datestamp >= strtotime(FILTER_DATE_END)) {
             printf("Skipping too new mail from %s\n", $overview->date);
             continue;
         }
