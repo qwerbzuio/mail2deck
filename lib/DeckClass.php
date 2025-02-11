@@ -159,7 +159,7 @@ class DeckClass {
         $fullPath = getcwd() . "/attachments/"; //get full path to attachments directory
         foreach ($attachments as $attachment) {
             if (! $attachment){
-                print("Warning: empyt attachment name. Skipping.\n");
+                print("Warning: empty attachment name. Skipping.\n");
                 continue;
             }
             $file = $fullPath . $attachment;
