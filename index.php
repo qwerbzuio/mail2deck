@@ -100,7 +100,7 @@ function process_parts($inbox, $email, $part_id_array = array(), $is_alternative
         for ($imixed = 0; $imixed < $nparts; ++$imixed) { // process all subparts
             $subpart_id_array = $part_id_array;
             array_push($subpart_id_array, $imixed);
-            $subcontents = process_parts($inbox, $email, $subpart_id_array);
+            $subcontents = process_parts($inbox, $email, $subpart_id_array, $is_alternative);
             if (IGNORE_INLINE_ATTACHMENTS) {
                 // ignore inline-attachment parts (cannot be rendered in markdown)
                 $subcontents = array_filter($subcontents, function ($content) {
@@ -113,11 +113,13 @@ function process_parts($inbox, $email, $part_id_array = array(), $is_alternative
         $lastpart = count($part->parts) - 1; // select only last part
         $last_part_id_array = $part_id_array;
         array_push($last_part_id_array, $lastpart);
-        $contents = process_parts($inbox, $email, $last_part_id_array);
+        $subcontents = process_parts($inbox, $email, $last_part_id_array, false);
+        $contents = array_merge($contents, $subcontents);
         // set first part as alternative
         $first_part_id_array = $part_id_array;
         array_push($first_part_id_array, 0);
-        $contents = process_parts($inbox, $email, $first_part_id_array, true);
+        $subcontents = process_parts($inbox, $email, $first_part_id_array, true);
+        $contents = array_merge($contents, $subcontents);
     } else {
         array_push($contents, get_part($inbox, $email, $part_id_array, $is_alternative));
     }
@@ -154,15 +156,12 @@ function extract_description($contents, $fromaddress, $is_alternative)
             continue;
         }
         if ($is_alternative) {
-            print("alternative\n");
             $description .= $content['alternative'];
         } else {
-            print("nonalternative\n");
             $description .= $content['content'];
         }
     }
     $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
-    print_r($description);
     return $description;
 }
 
@@ -185,16 +184,16 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
 
     $contents = process_parts($inbox, $email);
 
+    // add fromadress on top
+    $from = $overview->from[0];
+    $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
+
     $data = new stdClass();
     $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
     $data->type = "plain";
     $data->order = -time();
-    $data->description = "";
+    $data->description = extract_description($contents, $fromaddress, false);
     $data->attachments = extract_attachments($contents);
-
-    // add fromadress on top
-    $from = $overview->from[0];
-    $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
@@ -206,12 +205,11 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $stackid = $newcard->getStackID($board, $stack);
 
     try {
-        $data->description = extract_description($contents, $fromaddress, false);
         $response = $newcard->addCard($data, $mailSender, $board, $stackid);
     } catch (Exception $e) {
-        print_r($e);
-        print("\nFailed to create card. Trying with plain text message.");
-        $data->description = extract_description($contents, $fromaddress, false);
+        print_r($e->getMessage());
+        print("\nTrying again with alternative message representation.\n");
+        $data->description = extract_description($contents, $fromaddress, true);
         $response = $newcard->addCard($data, $mailSender, $board, $stackid);
     }
 
