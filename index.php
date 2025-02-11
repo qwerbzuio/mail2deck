@@ -173,7 +173,7 @@ if (!$emails) {
 }
 
 $startmail = 0;
-$bunchsize = 1;
+$bunchsize = 500;
 
 for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
     printf("%d\n", $iemail);
