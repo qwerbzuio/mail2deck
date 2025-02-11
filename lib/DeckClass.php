@@ -157,8 +157,12 @@ class DeckClass {
 
     private function addAttachments($card, $attachments) {
         $fullPath = getcwd() . "/attachments/"; //get full path to attachments directory
-        for ($i = 0; $i < count($attachments); $i++) {
-            $file = $fullPath . $attachments[$i];
+        foreach ($attachments as $attachment) {
+            if (! $attachment){
+                print("Warning: empyt attachment name. Skipping.\n");
+                continue;
+            }
+            $file = $fullPath . $attachment;
             $data = array(
                 'file' => new \CURLFile($file)
             );
