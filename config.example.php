@@ -12,3 +12,6 @@ define("DECODE_SPECIAL_CHARACTERS", true); //requires mbstring, if false special
 define("ASSIGN_SENDER", true); // if true, sender will be assigned to card if has NC account
 define("MAIL_NOTIFICATION", true); // if true, send notifications when a new card was created or an error occured
 define("DELETE_MAIL_AFTER_PROCESSING", true);
+define("IGNORE_INLINE_ATTACHMENTS", false); // if true, inline attachments will be dropped (cannot be rendered inline)
+define("DEFAULT_BOARD_NAME", "testboard");
+define("DEFAULT_DECK_NAME", "anhören");
