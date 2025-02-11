@@ -203,6 +203,9 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
 
     $newcard = new DeckClass();
     $stackid = $newcard->getStackID($board, $stack);
+    if (!$stackid){
+        throw new Exception(sprintf("Could not access stack '%s' on board '%s'.", $stack, $board));
+    }
 
     try {
         $response = $newcard->addCard($data, $mailSender, $board, $stackid);

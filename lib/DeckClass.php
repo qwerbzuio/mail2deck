@@ -123,16 +123,14 @@ class DeckClass {
 
     public function addCard($data, $user, $board, $stackid) {
         $params = $this->getParameters($data->title, $board);
-        # printf("%s\n", $board);
-        # print_r($data);
-        # printf("%s\n", $params->stack);
 
         if($params) {
             $data->title = $params->newTitle;
             $data->duedate = $params->dueDate;
             $card = $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}/cards", $data);
             if (! $card){
-                throw new Exception(sprintf("Could not create card on board '%s'", $params->boardTitle));
+                $stack = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}");
+                throw new Exception(sprintf("Could not create card on board '%s', stack '%s'", $params->boardTitle, $stack->title));
             }
             $card->board = $params->board;
             $card->stack = $stackid;
