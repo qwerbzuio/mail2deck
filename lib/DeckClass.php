@@ -126,7 +126,9 @@ class DeckClass {
 
         if($params) {
             $data->title = $params->newTitle;
-            $data->duedate = $params->dueDate;
+            if ($params->dueDate){
+                $data->duedate = $params->dueDate;
+            }
             $card = $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}/cards", $data);
             if (! $card){
                 $stack = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}");

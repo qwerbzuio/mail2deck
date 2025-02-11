@@ -194,6 +194,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $data->order = -time();
     $data->description = extract_description($contents, $fromaddress, false);
     $data->attachments = extract_attachments($contents);
+    $data->duedate = $overview->date;
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
