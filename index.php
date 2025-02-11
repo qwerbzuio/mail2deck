@@ -162,6 +162,10 @@ function extract_description($contents, $fromaddress, $is_alternative)
         }
     }
     $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
+    if (strlen($description) > 6272) {
+        // $description = substr($description, 0, 6272);
+        print("WARNING: description length exceeds 6272\n");
+    }
     return $description;
 }
 
@@ -172,8 +176,8 @@ if (!$emails) {
     return;
 }
 
-$startmail = 0;
-$bunchsize = 500;
+$startmail = 97;
+$bunchsize = 1;
 
 for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
     printf("%d\n", $iemail);
@@ -181,14 +185,14 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $overview = $inbox->headerInfo($email);
 
     $datestamp = strtotime($overview->date);
-    if (FILTER_DATE_BEGIN){
-        if ($datestamp < strtotime(FILTER_DATE_BEGIN)){
+    if (FILTER_DATE_BEGIN) {
+        if ($datestamp < strtotime(FILTER_DATE_BEGIN)) {
             printf("Skipping too old mail from %s\n", $overview->date);
             continue;
         }
     }
-    if (FILTER_DATE_END){
-        if ($datestamp > strtotime(FILTER_DATE_END)){
+    if (FILTER_DATE_END) {
+        if ($datestamp > strtotime(FILTER_DATE_END)) {
             printf("Skipping too new mail from %s\n", $overview->date);
             continue;
         }
@@ -218,7 +222,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
 
     $newcard = new DeckClass();
     $stackid = $newcard->getStackID($board, $stack);
-    if (!$stackid){
+    if (!$stackid) {
         throw new Exception(sprintf("Could not access stack '%s' on board '%s'.", $stack, $board));
     }
 
