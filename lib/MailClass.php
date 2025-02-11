@@ -47,7 +47,7 @@ class MailClass {
         return $headerInfo;
     }
 
-    public function reply($sender, $response = null) {
+    public function sendmail($recipient, $subject, $body) {
         $server = NC_SERVER;
 
         if(strstr($server, "https://")) {
@@ -62,22 +62,22 @@ class MailClass {
             'Content-Type' => 'text/html'
         );
 
-        if($response) {
-            $body = "<h1>A new card has been created on board <a href=\"" . NC_SERVER . "/index.php/apps/deck/#/board/{$response->board}" . "\">{$response->boardTitle}</a>.</h1>
-                    <p>Check out this <a href=\"" . NC_SERVER . "/index.php/apps/deck/#/board/{$response->board}/card/{$response->id}" . "\">link</a> to see the newly created card.</p>
-                    <p>Card ID is {$response->id}</p>";
-            $subject = 'A new card has been created!';
-        } else {
-            $body = "<h1>There was a problem creating a new card.</h1><p>Make sure the board was setup correctly.</p>";
-            $subject = "A new card could not be created!";
-        }
+        // if($response) {
+        //     $body = "<h1>A new card has been created on board <a href=\"" . NC_SERVER . "/index.php/apps/deck/#/board/{$response->board}" . "\">{$response->boardTitle}</a>.</h1>
+        //             <p>Check out this <a href=\"" . NC_SERVER . "/index.php/apps/deck/#/board/{$response->board}/card/{$response->id}" . "\">link</a> to see the newly created card.</p>
+        //             <p>Card ID is {$response->id}</p>";
+        //     $subject = 'A new card has been created!';
+        // } else {
+        //     $body = "<h1>There was a problem creating a new card.</h1><p>Make sure the board was setup correctly.</p>";
+        //     $subject = "A new card could not be created!";
+        // }
 
         $message = "<html>";
         $message .= "<head><title>mail2deck response</title></head>";
         $message .= "<body>$body</body>";
         $message .= "</html>";
 
-        mail($sender, $subject, $message, $headers);
+        mail($recipient, $subject, $message, $headers);
     }
 
     /**

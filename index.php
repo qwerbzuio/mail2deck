@@ -163,8 +163,8 @@ function extract_description($contents, $fromaddress, $is_alternative)
     }
     $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
     if (strlen($description) > 6272) {
-        // $description = substr($description, 0, 6272);
         print("WARNING: description length exceeds 6272\n");
+        // $description = substr($description, 0, 4096);
     }
     return $description;
 }
@@ -176,7 +176,7 @@ if (!$emails) {
     return;
 }
 
-$startmail = 97;
+$startmail = 131;
 $bunchsize = 1;
 
 for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
@@ -202,7 +202,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
 
     $contents = process_parts($inbox, $email);
 
-    // add fromadress on top
+    // add fromaddress on top
     $from = $overview->from[0];
     $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
 
@@ -229,22 +229,26 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     try {
         $response = $newcard->addCard($data, $mailSender, $board, $stackid);
     } catch (Exception $e) {
+        printf("Could not process mail '%s' from '%s':\n  ", $data->title, $fromaddress);
         print_r($e->getMessage());
-        print("\nTrying again with alternative message representation.\n");
+        print("\n  Trying again with alternative message representation.\n");
         $data->description = extract_description($contents, $fromaddress, true);
-        $response = $newcard->addCard($data, $mailSender, $board, $stackid);
+        try {
+            $response = $newcard->addCard($data, $mailSender, $board, $stackid);
+        } catch (Exception $e) {
+            print("... still not possible. Giving up on this.\n");
+            if (MAIL_NOTIFICATION) {
+                printf("Sending mail about failure to %s\n", MAIL_NOTIFICATION);
+                $message = sprintf("Could not process mail '%s' from '%s':\n  ", $data->title, $fromaddress);
+                $subject = "Card could not be created";
+                $inbox->sendmail(MAIL_NOTIFICATION, $subject, $message);
+            }
+            continue;
+        }
     }
 
     // print_r($response);
     // $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
-
-    if (MAIL_NOTIFICATION) {
-        if ($response) {
-            $inbox->reply($mailSender->origin, $response);
-        } else {
-            $inbox->reply($mailSender->origin);
-        }
-    }
 
     if (!$response) {
         foreach ($data->attachments as $attachment) unlink(getcwd() . "/attachments/" . $attachment);
