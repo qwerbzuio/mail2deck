@@ -16,9 +16,8 @@ class MailClass {
         imap_close($this->inbox);
     }
 
-    public function getNewMessages() {
-        return imap_search($this->inbox, 'ALL');
-        # return imap_search($this->inbox, 'UNSEEN');
+    public function getNewMessages($which='UNSEEN') {
+        return imap_search($this->inbox, $which);
     }
 
     public function fetchMessageStructure($email) {

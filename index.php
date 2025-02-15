@@ -257,7 +257,9 @@ function process_mail($email, $inbox)
 function process_mails($argv)
 {
     $inbox = new MailClass();
-    $emails = $inbox->getNewMessages();
+    $which = 'UNSEEN';
+    $which = 'ALL'; // for initialization
+    $emails = $inbox->getNewMessages($which);
 
     if (!$emails) {
         // delete all messages marked for deletion and return
