@@ -9,9 +9,6 @@ use Mail2Deck\MailClass;
 use Mail2Deck\DeckClass;
 use Mail2Deck\ConvertToMD;
 
-$inbox = new MailClass();
-$emails = $inbox->getNewMessages();
-
 function get_part($inbox, $email, $part_id_array, $is_alternative)
 {
     $content = array(
@@ -169,32 +166,21 @@ function extract_description($contents, $fromaddress, $is_alternative)
     return $description;
 }
 
-if (!$emails) {
-    // delete all messages marked for deletion and return
-    $inbox->expunge();
-    print("no mail\n");
-    return;
-}
-
-$startmail = 131;
-$bunchsize = 1;
-
-for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $bunchsize; $iemail++) {
-    printf("%d\n", $iemail);
-    $email = $emails[$iemail];
+function process_mail($email, $inbox)
+{
     $overview = $inbox->headerInfo($email);
 
     $datestamp = strtotime($overview->date);
     if (FILTER_DATE_BEGIN) {
         if ($datestamp < strtotime(FILTER_DATE_BEGIN)) {
             printf("Skipping too old mail from %s\n", $overview->date);
-            continue;
+            return;
         }
     }
     if (FILTER_DATE_END) {
         if ($datestamp >= strtotime(FILTER_DATE_END)) {
             printf("Skipping too new mail from %s\n", $overview->date);
-            continue;
+            return;
         }
     }
 
@@ -202,7 +188,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     // print_r($part);
 
     $contents = process_parts($inbox, $email);
-    print_r($contents);
+    // print_r($contents);
 
     // add fromaddress on top
     $from = $overview->from[0];
@@ -216,7 +202,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $data->attachments = extract_attachments($contents);
     $data->duedate = $overview->date;
 
-    continue;
+    // return;
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
@@ -247,7 +233,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
                 $subject = "Card could not be created";
                 // $inbox->sendmail(MAIL_NOTIFICATION, $subject, $message);
             }
-            continue;
+            return;
         }
     }
 
@@ -263,3 +249,36 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
         $inbox->delete($email);
     }
 }
+
+function process_mails($argv)
+{
+    $inbox = new MailClass();
+    $emails = $inbox->getNewMessages();
+
+    if (!$emails) {
+        // delete all messages marked for deletion and return
+        $inbox->expunge();
+        print("no mail\n");
+        return;
+    }
+
+    $startmail = 0;
+    $bunchsize = null;
+
+    # for testing
+    if (count($argv) > 1) {
+        $startmail = $argv[1];
+    }
+    if (count($argv) > 2) {
+        $bunchsize = $argv[2];
+    }
+
+    $emails_todo = array_slice($emails, $startmail, $bunchsize);
+    $iemail = $startmail;
+    foreach ($emails_todo as $email) {
+        printf("%d\n", $iemail++);
+        process_mail($email, $inbox);
+    }
+}
+
+process_mails($argv);
