@@ -57,7 +57,7 @@ class MailClass {
         }
 
         $headers = array(
-            'From' => 'no-reply@' . $server,
+            'From' => MAIL_USER,
             'MIME-Version' => '1.0',
             'Content-Type' => 'text/html'
         );
@@ -77,7 +77,7 @@ class MailClass {
         $message .= "<body>$body</body>";
         $message .= "</html>";
 
-        mail($recipient, $subject, $message, $headers);
+        imap_mail($recipient, $subject, $message, join("\n", $headers));
     }
 
     /**
