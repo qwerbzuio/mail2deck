@@ -9,6 +9,12 @@ use Mail2Deck\MailClass;
 use Mail2Deck\DeckClass;
 use Mail2Deck\ConvertToMD;
 
+class Mail2DeckException extends Exception
+{
+    public $sender = '';
+    public $subject = '';
+}
+
 function get_part($inbox, $email, $part_id_array, $is_alternative)
 {
     $content = array(
@@ -107,7 +113,8 @@ function process_parts($inbox, $email, $part_id_array = array(), $is_alternative
             $contents = array_merge($contents, $subcontents);
         }
     } elseif ($subtype == 'alternative') {
-        $lastpart = count($part->parts) - 1; // select only last part
+        // set last part as main content
+        $lastpart = count($part->parts) - 1;
         $last_part_id_array = $part_id_array;
         array_push($last_part_id_array, $lastpart);
         $subcontents = process_parts($inbox, $email, $last_part_id_array, false);
@@ -219,21 +226,18 @@ function process_mail($email, $inbox)
     try {
         $response = $newcard->addCard($data, $mailSender, $board, $stackid);
     } catch (Exception $e) {
-        printf("Could not process mail '%s' from '%s':\n  ", $data->title, $fromaddress);
-        print_r($e->getMessage());
-        print("\n  Trying again with alternative message representation.\n");
+        printf("Could not add card for mail '%s' from '%s':\n  ", $data->title, $fromaddress);
+        print("\n  Trying again with alternative message representation...\n");
         $data->description = extract_description($contents, $fromaddress, true);
+        // print($data->description);
         try {
             $response = $newcard->addCard($data, $mailSender, $board, $stackid);
         } catch (Exception $e) {
-            print("... still not possible. Giving up on this.\n");
-            if (MAIL_NOTIFICATION) {
-                printf("Sending mail about failure to %s\n", MAIL_NOTIFICATION);
-                $message = sprintf("Could not process mail '%s' from '%s':\n  ", $data->title, $fromaddress);
-                $subject = "Card could not be created";
-                // $inbox->sendmail(MAIL_NOTIFICATION, $subject, $message);
-            }
-            return;
+            print("  ... still not possible. Giving up on this.\n");
+            $newex = new Mail2DeckException($e->getMessage());
+            $newex->sender = $fromaddress;
+            $newex->subject = $data->title;
+            throw $newex;
         }
     }
 
@@ -277,7 +281,18 @@ function process_mails($argv)
     $iemail = $startmail;
     foreach ($emails_todo as $email) {
         printf("%d\n", $iemail++);
-        process_mail($email, $inbox);
+        try {
+            process_mail($email, $inbox);
+        } catch (Mail2DeckException $e) {
+            if (MAIL_NOTIFICATION) {
+                $subject = sprintf("Could not process mail '%s' from '%s'", $e->subject, $e->sender);
+                $message = $e->getMessage();
+                printf("%s:\n%s\n", $subject, $message);
+                printf("Sending mail about failure to %s\n", MAIL_NOTIFICATION);
+                // $inbox->sendmail(MAIL_NOTIFICATION, $subject, $message);
+            }
+            return;
+        }
     }
 }
 
