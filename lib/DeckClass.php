@@ -151,10 +151,6 @@ class DeckClass {
         return false;
     }
 
-    public function deleteCards($board, $stack) {
-
-    }
-
     private function addAttachments($card, $attachments) {
         $fullPath = getcwd() . "/attachments/"; //get full path to attachments directory
         foreach ($attachments as $attachment) {
