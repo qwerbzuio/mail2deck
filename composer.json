@@ -1,6 +1,7 @@
 {
     "require": {
         "league/html-to-markdown": "^5.1",
+        "php-mime-mail-parser/php-mime-mail-parser": "^9",
         "phpmailer/phpmailer": "^6.9.2"
     },
     "autoload": {
