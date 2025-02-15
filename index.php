@@ -199,8 +199,10 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     }
 
     $part = $inbox->fetchMessageStructure($email);
+    // print_r($part);
 
     $contents = process_parts($inbox, $email);
+    print_r($contents);
 
     // add fromaddress on top
     $from = $overview->from[0];
@@ -213,6 +215,8 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
     $data->description = extract_description($contents, $fromaddress, false);
     $data->attachments = extract_attachments($contents);
     $data->duedate = $overview->date;
+
+    continue;
 
     $mailSender = new stdClass();
     $mailSender->userId = $overview->reply_to[0]->mailbox;
@@ -241,7 +245,7 @@ for ($iemail = $startmail; $iemail < count($emails) && $iemail < $startmail + $b
                 printf("Sending mail about failure to %s\n", MAIL_NOTIFICATION);
                 $message = sprintf("Could not process mail '%s' from '%s':\n  ", $data->title, $fromaddress);
                 $subject = "Card could not be created";
-                $inbox->sendmail(MAIL_NOTIFICATION, $subject, $message);
+                // $inbox->sendmail(MAIL_NOTIFICATION, $subject, $message);
             }
             continue;
         }
