@@ -226,8 +226,8 @@ function process_mail($email, $inbox)
     try {
         $response = $newcard->addCard($data, $mailSender, $board, $stackid);
     } catch (Exception $e) {
-        printf("Could not add card for mail '%s' from '%s':\n  ", $data->title, $fromaddress);
-        print("\n  Trying again with alternative message representation...\n");
+        printf("Could not add card for mail '%s' from '%s'\n  ", $data->title, $fromaddress);
+        print("  Trying again with alternative message representation...\n");
         $data->description = extract_description($contents, $fromaddress, true);
         // print($data->description);
         try {
