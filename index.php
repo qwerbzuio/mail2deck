@@ -8,11 +8,25 @@ require_once(__DIR__ . '/config.php');
 use Mail2Deck\MailClass;
 use Mail2Deck\DeckClass;
 use Mail2Deck\ConvertToMD;
+use ZBateson\MailMimeParser\MailMimeParser;
+use ZBateson\MailMimeParser\Message;
+use ZBateson\MailMimeParser\Header\HeaderConsts;
+// use PHPMailer\PHPMailer\PHPMailer;
+// use PHPMailer\PHPMailer\Exception;
+
+// require 'vendor/phpmailer/phpmailer/src/Exception.php';
+// require 'vendor/phpmailer/phpmailer/src/PHPMailer.php';
+// require 'vendor/phpmailer/phpmailer/src/SMTP.php';
 
 class Mail2DeckException extends Exception
 {
     public $sender = '';
     public $subject = '';
+}
+
+function decode_special_chars($text)
+{
+    return DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($text) : $text;
 }
 
 function get_part($inbox, $email, $part_id_array, $is_alternative)
@@ -131,8 +145,18 @@ function process_parts($inbox, $email, $part_id_array = array(), $is_alternative
     return $contents;
 }
 
-function extract_attachments($contents)
+function extract_attachments($message)
 {
+    $attachments = array();
+    if (! file_exists(getcwd() . '/attachments')) {
+        mkdir(getcwd() . '/attachments');
+    }
+    foreach ($message->getAllAttachmentParts() as $attachment) {
+        array_push($attachments, $attachment->getFilename());
+        $attachment->saveContent(getcwd() . '/attachments/' . $attachment->getFilename());
+    }
+    return $attachments;
+
     $attachments = array();
     foreach ($contents as $content) {
         if (!$content['is_attachment']) {
@@ -154,6 +178,12 @@ function extract_attachments($contents)
 
 function extract_description($contents, $fromaddress, $is_alternative)
 {
+    if (!$is_alternative) {
+        $contents = (new ConvertToMD($contents))->execute();
+    }
+    $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $contents);
+    return $description;
+
     $description = "";
     foreach ($contents as $content) {
         if ($content['is_attachment']) {
@@ -165,54 +195,56 @@ function extract_description($contents, $fromaddress, $is_alternative)
             $description .= $content['content'];
         }
     }
+
     $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
     if (strlen($description) > 6272) {
         print("WARNING: description length exceeds 6272\n");
         // $description = substr($description, 0, 4096);
     }
+
     return $description;
 }
 
 function process_mail($email, $inbox)
 {
-    $overview = $inbox->headerInfo($email);
+    // use an instance of MailMimeParser as a class dependency
+    $raw = $inbox->fetchMessageBody($email, "");
+    $message = Message::from($raw, false);
+    $fromaddress = $message->getHeaderValue('From');
+    $date = $message->getHeaderValue('Date');
+    $html = decode_special_chars($message->getHtmlContent());
+    $plaintext = decode_special_chars($message->getTextContent());
+    $subject = $message->getHeaderValue('Subject');
 
-    $datestamp = strtotime($overview->date);
+    $datestamp = strtotime($date);
     if (FILTER_DATE_BEGIN) {
         if ($datestamp < strtotime(FILTER_DATE_BEGIN)) {
-            printf("Skipping too old mail from %s\n", $overview->date);
+            printf("Skipping too old mail from %s\n", $date);
             return;
         }
     }
     if (FILTER_DATE_END) {
         if ($datestamp >= strtotime(FILTER_DATE_END)) {
-            printf("Skipping too new mail from %s\n", $overview->date);
+            printf("Skipping too new mail from %s\n", $date);
             return;
         }
     }
 
-    $part = $inbox->fetchMessageStructure($email);
-    // print_r($part);
-
-    $contents = process_parts($inbox, $email);
-    // print_r($contents);
-
-    // add fromaddress on top
-    $from = $overview->from[0];
-    $fromaddress = sprintf("%s@%s", $from->mailbox, $from->host);
-
     $data = new stdClass();
-    $data->title = DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($overview->subject) : $overview->subject;
+    $data->title = $subject;
     $data->type = "plain";
     $data->order = -time();
-    $data->description = extract_description($contents, $fromaddress, false);
-    $data->attachments = extract_attachments($contents);
-    $data->duedate = $overview->date;
+    $data->description = extract_description($html, $fromaddress, false);
+    $data->attachments = extract_attachments($message);
+    foreach ($data->attachments as $attachment) {
+        $attachment->saveContent($attachment->getFilename());
+    }
+    $data->duedate = $date;
 
     // return;
 
     $mailSender = new stdClass();
-    $mailSender->userId = $overview->reply_to[0]->mailbox;
+    // $mailSender->userId = $overview->reply_to[0]->mailbox;
 
     $board = DEFAULT_BOARD_NAME;
     $stack = DEFAULT_DECK_NAME;
@@ -220,16 +252,15 @@ function process_mail($email, $inbox)
     $newcard = new DeckClass();
     $stackid = $newcard->getStackID($board, $stack);
     if (!$stackid) {
-        throw new Exception(sprintf("Could not access stack '%s' on board '%s'.", $stack, $board));
+        throw new Mail2DeckException(sprintf("Could not access stack '%s' on board '%s'.", $stack, $board));
     }
 
     try {
         $response = $newcard->addCard($data, $mailSender, $board, $stackid);
     } catch (Exception $e) {
-        printf("Could not add card for mail '%s' from '%s'\n  ", $data->title, $fromaddress);
+        printf("Could not add card for mail '%s' from '%s'\n", $data->title, $fromaddress);
         print("  Trying again with alternative message representation...\n");
-        $data->description = extract_description($contents, $fromaddress, true);
-        // print($data->description);
+        $data->description = extract_description($plaintext, $fromaddress, true);
         try {
             $response = $newcard->addCard($data, $mailSender, $board, $stackid);
         } catch (Exception $e) {
@@ -250,13 +281,14 @@ function process_mail($email, $inbox)
 
     //remove email after processing
     if (DELETE_MAIL_AFTER_PROCESSING) {
-        $inbox->delete($email);
+        // $inbox->delete($email);
     }
 }
 
 function process_mails($argv)
 {
     $inbox = new MailClass();
+
     $which = 'UNSEEN';
     $which = 'ALL'; // for initialization
     $emails = $inbox->getNewMessages($which);
