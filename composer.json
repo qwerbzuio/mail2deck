@@ -1,6 +1,12 @@
 {
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/qwerbzuio/html-to-markdown"
+        }
+    ],
     "require": {
-        "league/html-to-markdown": "^5.1",
+        "league/html-to-markdown": "dev-master",
         "phpmailer/phpmailer": "^6.9.2",
         "zbateson/mail-mime-parser": "^3.0"
     },
