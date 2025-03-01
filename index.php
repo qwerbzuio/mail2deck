@@ -249,9 +249,6 @@ function process_mail($email, $inbox)
     $data->order = -time();
     $data->description = $mdtext;
     $data->attachments = extract_attachments($message);
-    foreach ($data->attachments as $attachment) {
-        // $attachment->saveContent($attachment->getFilename());
-    }
     $data->duedate = $date;
 
     $mailSender = new stdClass();

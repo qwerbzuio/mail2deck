@@ -125,7 +125,7 @@ class DeckClass {
         $params = $this->getParameters($data->title, $board);
 
         if($params) {
-            // $data->title = $params->newTitle;
+            $data->title = $params->newTitle;
             if ($params->dueDate){
                 $data->duedate = $params->dueDate;
             }
@@ -141,7 +141,9 @@ class DeckClass {
             
             if($this->responseCode == 200) {
                 if(ASSIGN_SENDER || $params->userId) $this->assignUser($card, $user);
-                if($data->attachments) $this->addAttachments($card, $data->attachments);
+                if($data->attachments) {
+                    $this->addAttachments($card, $data->attachments);
+                }
                 $card->boardTitle = $params->boardTitle;
             } else {
                 return false;
