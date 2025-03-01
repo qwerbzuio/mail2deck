@@ -179,9 +179,9 @@ function extract_attachments($message)
 function extract_description($contents, $fromaddress, $is_alternative)
 {
     if (!$is_alternative) {
-        $contents = (new ConvertToMD($contents))->execute();
+        $description = (new ConvertToMD($contents))->execute();
     }
-    $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $contents);
+    // $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
     return $description;
 
     $description = "";
@@ -212,8 +212,13 @@ function process_mail($email, $inbox)
     $message = Message::from($raw, false);
     $fromaddress = $message->getHeaderValue('From');
     $date = $message->getHeaderValue('Date');
-    $html = decode_special_chars($message->getHtmlContent());
-    $plaintext = decode_special_chars($message->getTextContent());
+    $html = $message->getHtmlContent();
+    // $charset = $message->getContentTransferEncoding();
+    // $html = $message->getHtmlContent(0, "UTF-8");
+    // $html = decode_special_chars($html);
+    // $html = quoted_printable_decode($html);
+    $plaintext = $message->getTextContent();
+    // $plaintext = decode_special_chars($plaintext);
     $subject = $message->getHeaderValue('Subject');
 
     $datestamp = strtotime($date);
@@ -230,18 +235,24 @@ function process_mail($email, $inbox)
         }
     }
 
+    // extract body part and convert to markdown
+    preg_match('/<body[^>]*>(.*?)<\/body>/is', $html, $matches);
+    if ($matches) {
+        $html = $matches[1];
+    }
+    $mdtext = (new ConvertToMD($html))->execute();
+    $mdtext = sprintf("(From: <%s>)\n\n%s", $fromaddress, $mdtext);
+
     $data = new stdClass();
     $data->title = $subject;
     $data->type = "plain";
     $data->order = -time();
-    $data->description = extract_description($html, $fromaddress, false);
+    $data->description = $mdtext;
     $data->attachments = extract_attachments($message);
     foreach ($data->attachments as $attachment) {
-        $attachment->saveContent($attachment->getFilename());
+        // $attachment->saveContent($attachment->getFilename());
     }
     $data->duedate = $date;
-
-    // return;
 
     $mailSender = new stdClass();
     // $mailSender->userId = $overview->reply_to[0]->mailbox;
@@ -260,7 +271,7 @@ function process_mail($email, $inbox)
     } catch (Exception $e) {
         printf("Could not add card for mail '%s' from '%s'\n", $data->title, $fromaddress);
         print("  Trying again with alternative message representation...\n");
-        $data->description = extract_description($plaintext, $fromaddress, true);
+        $data->description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $plaintext);
         try {
             $response = $newcard->addCard($data, $mailSender, $board, $stackid);
         } catch (Exception $e) {
@@ -281,7 +292,7 @@ function process_mail($email, $inbox)
 
     //remove email after processing
     if (DELETE_MAIL_AFTER_PROCESSING) {
-        // $inbox->delete($email);
+        $inbox->delete($email);
     }
 }
 
