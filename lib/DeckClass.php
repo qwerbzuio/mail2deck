@@ -125,7 +125,7 @@ class DeckClass {
         $params = $this->getParameters($data->title, $board);
 
         if($params) {
-            $data->title = $params->newTitle;
+            // $data->title = $params->newTitle;
             if ($params->dueDate){
                 $data->duedate = $params->dueDate;
             }
