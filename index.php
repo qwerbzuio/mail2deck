@@ -129,6 +129,10 @@ function process_mail($email, $inbox)
     } else {
         print("Warning: Detected empty HTML, using plain part instead.\n");
         $mdtext = $plaintext;
+
+        // $message = sprintf("Empty HTML part in mail from from '%s'\n", $fromaddress);
+        // send_logging_mail($message);
+
     }
 
     $mdtext = sprintf("(From: <%s>)\n\n%s", $fromaddress, $mdtext);
@@ -190,22 +194,31 @@ function process_mail_bunch($startmail, $bunchsize)
     $emails_todo = array_slice($emails, $startmail, $bunchsize);
     $iemail = $startmail;
     foreach ($emails_todo as $email) {
+        $errormsg = '';
         try {
             printf("Mail number %d\n", $iemail); // debugging
             process_mail($email, $inbox);
         } catch (Mail2DeckException $e) {
+            $errormsg = sprintf(
+                "Could not process mail #%d '%s' from '%s':\n%s",
+                $iemail,
+                $e->subject,
+                $e->sender,
+                $e->getMessage()
+            );
+        } catch (Exception $e) {
+            $errormsg = sprintf(
+                "Could not process mail #%d:\n%s",
+                $iemail,
+                $e->getMessage()
+            );
+        }
+        if ($errormsg) {
             if (MAIL_NOTIFICATION) {
-                $message = sprintf(
-                    "Could not process mail '%s' from '%s':\n%s",
-                    $e->subject,
-                    $e->sender,
-                    $e->getMessage()
-                );
-                printf("Mail number %d\n%s\n", $iemail, $message);
+                printf("Mail number %d\n%s\n", $iemail, $errormsg);
                 printf("Sending mail about failure to %s\n", MAIL_NOTIFICATION);
-                send_logging_mail($message);
+                send_logging_mail($errormsg);
             }
-            return;
         }
         $iemail++;
     }
