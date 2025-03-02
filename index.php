@@ -231,11 +231,17 @@ function process_mail($email, $inbox)
     }
 
     // extract body part and convert to markdown
-    preg_match('/<body[^>]*>(.*?)<\/body>/is', $html, $matches);
-    if ($matches) {
-        $html = $matches[1];
+    if ($html) {
+        preg_match('/<body[^>]*>(.*?)<\/body>/is', $html, $matches);
+        if ($matches) {
+            $html = $matches[1];
+        }
+        $mdtext = (new ConvertToMD($html))->execute();
+    } else {
+        print("Warning: HTML part empty, using plain part instead.\n");
+        $mdtext = $plaintext;
     }
-    $mdtext = (new ConvertToMD($html))->execute();
+
     $mdtext = sprintf("(From: <%s>)\n\n%s", $fromaddress, $mdtext);
 
     $data = new stdClass();
