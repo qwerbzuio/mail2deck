@@ -8,9 +8,7 @@ require_once(__DIR__ . '/config.php');
 use Mail2Deck\MailClass;
 use Mail2Deck\DeckClass;
 use Mail2Deck\ConvertToMD;
-use ZBateson\MailMimeParser\MailMimeParser;
 use ZBateson\MailMimeParser\Message;
-use ZBateson\MailMimeParser\Header\HeaderConsts;
 // use PHPMailer\PHPMailer\PHPMailer;
 // use PHPMailer\PHPMailer\Exception;
 
@@ -27,122 +25,6 @@ class Mail2DeckException extends Exception
 function decode_special_chars($text)
 {
     return DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($text) : $text;
-}
-
-function get_part($inbox, $email, $part_id_array, $is_alternative)
-{
-    $content = array(
-        'is_attachment' => false,
-        'filename' => '',
-        'name' => '',
-        'content' => '',
-        'alternative' => '',
-    );
-
-    $part = $inbox->fetchMessageStructure($email);
-    foreach ($part_id_array as $ipart) { // select subpart
-        $part = $part->parts[$ipart];
-    }
-
-    $spec_array = array_map(fn($id): int => $id + 1, $part_id_array);
-    $partspec = join(".", $spec_array);
-    $parttext = $inbox->fetchMessageBody($email, $partspec);
-
-    if ($part->encoding == 3) { // 3 = BASE64
-        $parttext = base64_decode($parttext);
-    } elseif ($part->encoding == 4) { // 4 = QUOTED-PRINTABLE
-        $parttext = DECODE_SPECIAL_CHARACTERS ? quoted_printable_decode($parttext) : $parttext;
-    }
-
-    $encoding = 'UTF-8';
-    if ($part->ifparameters) {
-        foreach ($part->parameters as $object) {
-            $attribute = strtolower($object->attribute);
-            if ($attribute == 'name') {
-                $content['is_attachment'] = true;
-                $content['name'] = $object->value;
-            } elseif ($attribute == 'charset') {
-                $encoding = $object->value;
-            }
-        }
-    }
-
-    if ($part->ifdparameters) {
-        foreach ($part->dparameters as $object) {
-            if (strtolower($object->attribute) == 'filename') {
-                $content['is_attachment'] = true;
-                $content['filename'] = $object->value;
-            }
-        }
-    }
-
-    $subtype = strtolower($part->subtype);
-
-    if ($subtype == 'html') {
-        $parttext = mb_convert_encoding($parttext, "UTF-8", $encoding);
-        preg_match('/<body[^>]*>(.*?)<\/body>/is', $parttext, $matches);
-        if ($matches) {
-            $parttext = $matches[1];
-        }
-        $parttext = (new ConvertToMD($parttext))->execute();
-    } elseif ($subtype == 'plain') {
-        $parttext = mb_convert_encoding($parttext, "UTF-8", $encoding);
-        $nlines = $part->lines;
-        $lines = explode("\n", $parttext);
-        $lines = array_slice($lines, -$nlines);
-        $parttext = implode("\n", $lines);
-    }
-
-    if ($is_alternative) {
-        $content['alternative'] = $parttext;
-    } else {
-        $content['content'] = $parttext;
-    }
-
-    return $content;
-}
-
-function process_parts($inbox, $email, $part_id_array = array(), $is_alternative = false)
-{
-    $contents = array();
-
-    $part = $inbox->fetchMessageStructure($email);
-    foreach ($part_id_array as $ipart) { // select subpart
-        $part = $part->parts[$ipart];
-    }
-
-    $subtype = strtolower($part->subtype);
-    if ($subtype == 'mixed' || $subtype == 'related') {
-        $nparts = count($part->parts);
-        for ($imixed = 0; $imixed < $nparts; ++$imixed) { // process all subparts
-            $subpart_id_array = $part_id_array;
-            array_push($subpart_id_array, $imixed);
-            $subcontents = process_parts($inbox, $email, $subpart_id_array, $is_alternative);
-            if (IGNORE_INLINE_ATTACHMENTS) {
-                // ignore inline-attachment parts (cannot be rendered in markdown)
-                $subcontents = array_filter($subcontents, function ($content) {
-                    return !$content['is_attachment'];
-                });
-            }
-            $contents = array_merge($contents, $subcontents);
-        }
-    } elseif ($subtype == 'alternative') {
-        // set last part as main content
-        $lastpart = count($part->parts) - 1;
-        $last_part_id_array = $part_id_array;
-        array_push($last_part_id_array, $lastpart);
-        $subcontents = process_parts($inbox, $email, $last_part_id_array, false);
-        $contents = array_merge($contents, $subcontents);
-        // set first part as alternative
-        $first_part_id_array = $part_id_array;
-        array_push($first_part_id_array, 0);
-        $subcontents = process_parts($inbox, $email, $first_part_id_array, true);
-        $contents = array_merge($contents, $subcontents);
-    } else {
-        array_push($contents, get_part($inbox, $email, $part_id_array, $is_alternative));
-    }
-
-    return $contents;
 }
 
 function extract_attachments($message)
@@ -174,35 +56,6 @@ function extract_attachments($message)
         array_push($attachments, $content['filename']);
     }
     return $attachments;
-}
-
-function extract_description($contents, $fromaddress, $is_alternative)
-{
-    if (!$is_alternative) {
-        $description = (new ConvertToMD($contents))->execute();
-    }
-    // $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
-    return $description;
-
-    $description = "";
-    foreach ($contents as $content) {
-        if ($content['is_attachment']) {
-            continue;
-        }
-        if ($is_alternative) {
-            $description .= $content['alternative'];
-        } else {
-            $description .= $content['content'];
-        }
-    }
-
-    $description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $description);
-    if (strlen($description) > 6272) {
-        print("WARNING: description length exceeds 6272\n");
-        // $description = substr($description, 0, 4096);
-    }
-
-    return $description;
 }
 
 function process_mail($email, $inbox)
