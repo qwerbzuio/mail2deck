@@ -212,9 +212,15 @@ function process_mail($email, $inbox)
     $message = Message::from($raw, false);
     $fromaddress = $message->getHeaderValue('From');
     $date = $message->getHeaderValue('Date');
+    $subject = $message->getHeaderValue('Subject');
     $html = $message->getHtmlContent();
     $plaintext = $message->getTextContent();
-    $subject = $message->getHeaderValue('Subject');
+    // replace hyperlinks
+    $plaintext = preg_replace(
+        '#((https?|ftp)://(\S*?\.\S*?))([\s)\[\]{},;"\':<]|\.\s|$)#i',
+        "[$1]($1)",
+        $plaintext
+    );
 
     $datestamp = strtotime($date);
     if (FILTER_DATE_BEGIN) {
@@ -238,7 +244,7 @@ function process_mail($email, $inbox)
         }
         $mdtext = (new ConvertToMD($html))->execute();
     } else {
-        print("Warning: HTML part empty, using plain part instead.\n");
+        print("Warning: Detected empty HTML, using plain part instead.\n");
         $mdtext = $plaintext;
     }
 
@@ -287,11 +293,6 @@ function process_mail($email, $inbox)
     if (!$response) {
         foreach ($data->attachments as $attachment) unlink(getcwd() . "/attachments/" . $attachment);
     }
-
-    //remove email after processing
-    if (DELETE_MAIL_AFTER_PROCESSING) {
-        $inbox->delete($email);
-    }
 }
 
 function process_mails($argv)
@@ -301,13 +302,6 @@ function process_mails($argv)
     $which = 'UNSEEN';
     $which = 'ALL'; // for initialization
     $emails = $inbox->getNewMessages($which);
-
-    if (!$emails) {
-        // delete all messages marked for deletion and return
-        $inbox->expunge();
-        print("no mail\n");
-        return;
-    }
 
     $startmail = 0;
     $bunchsize = null;
