@@ -18,11 +18,6 @@ class Mail2DeckException extends Exception
     public $subject = '';
 }
 
-function decode_special_chars($text)
-{
-    return DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($text) : $text;
-}
-
 function send_logging_mail($message)
 {
     //Create an instance; passing `true` enables exceptions
