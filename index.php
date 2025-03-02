@@ -227,17 +227,17 @@ function process_mail_bunch($startmail, $bunchsize)
 function process_mails($argv)
 {
     $startmail = 0;
-    $bunchsize = null;
+    $mailcount = null;
 
     # for testing
     if (count($argv) > 1) {
         $startmail = $argv[1];
     }
     if (count($argv) > 2) {
-        $bunchsize = $argv[2];
+        $mailcount = $argv[2];
     }
 
-    process_mail_bunch($startmail, $bunchsize);
+    process_mail_bunch($startmail, $mailcount);
 }
 
 process_mails($argv);
