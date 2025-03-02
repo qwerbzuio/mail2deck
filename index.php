@@ -295,24 +295,13 @@ function process_mail($email, $inbox)
     }
 }
 
-function process_mails($argv)
+function process_mail_bunch($startmail, $bunchsize)
 {
     $inbox = new MailClass();
 
     $which = 'UNSEEN';
     $which = 'ALL'; // for initialization
     $emails = $inbox->getNewMessages($which);
-
-    $startmail = 0;
-    $bunchsize = null;
-
-    # for testing
-    if (count($argv) > 1) {
-        $startmail = $argv[1];
-    }
-    if (count($argv) > 2) {
-        $bunchsize = $argv[2];
-    }
 
     $emails_todo = array_slice($emails, $startmail, $bunchsize);
     $iemail = $startmail;
@@ -331,6 +320,22 @@ function process_mails($argv)
             return;
         }
     }
+}
+
+function process_mails($argv)
+{
+    $startmail = 0;
+    $bunchsize = null;
+
+    # for testing
+    if (count($argv) > 1) {
+        $startmail = $argv[1];
+    }
+    if (count($argv) > 2) {
+        $bunchsize = $argv[2];
+    }
+
+    process_mail_bunch($startmail, $bunchsize);
 }
 
 process_mails($argv);
