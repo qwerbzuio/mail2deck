@@ -5,6 +5,7 @@ define("NC_PASSWORD", "****"); // if your Nextcloud instance uses Two-Factor-Aut
 define("MAIL_SERVER", "localhost"); // server.domain
 define("MAIL_SERVER_FLAGS", "/novalidate-cert"); // flags needed to connect to server. Refer to https://www.php.net/manual/en/function.imap-open.php for a list of valid flags.
 define("MAIL_SERVER_PORT", "143");
+define("MAIL_SERVER_SMTP", ""); // server for outgoing logging mail
 define("MAIL_SERVER_SMTPPORT", "587"); // port for outgoing smtp server. Actually only used to configure Docker image outgoing SMTP Server
 define("MAIL_USER", "incoming");
 define("MAIL_PASSWORD", "****");

@@ -9,12 +9,8 @@ use Mail2Deck\MailClass;
 use Mail2Deck\DeckClass;
 use Mail2Deck\ConvertToMD;
 use ZBateson\MailMimeParser\Message;
-// use PHPMailer\PHPMailer\PHPMailer;
-// use PHPMailer\PHPMailer\Exception;
-
-// require 'vendor/phpmailer/phpmailer/src/Exception.php';
-// require 'vendor/phpmailer/phpmailer/src/PHPMailer.php';
-// require 'vendor/phpmailer/phpmailer/src/SMTP.php';
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception as MailerException;
 
 class Mail2DeckException extends Exception
 {
@@ -25,6 +21,45 @@ class Mail2DeckException extends Exception
 function decode_special_chars($text)
 {
     return DECODE_SPECIAL_CHARACTERS ? mb_decode_mimeheader($text) : $text;
+}
+
+function send_logging_mail($message)
+{
+    //Create an instance; passing `true` enables exceptions
+    $mail = new PHPMailer(true);
+
+    try {
+        //Server settings
+        // $mail->SMTPDebug = SMTP::DEBUG_SERVER;                      //Enable verbose debug output
+        $mail->isSMTP();                                            //Send using SMTP
+        $mail->Host       = MAIL_SERVER_SMTP;                     //Set the SMTP server to send through
+        $mail->SMTPAuth   = true;                                   //Enable SMTP authentication
+        $mail->Username   = MAIL_USER;                     //SMTP username
+        $mail->Password   = MAIL_PASSWORD;                               //SMTP password
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            //Enable implicit TLS encryption
+        $mail->Port       = MAIL_SERVER_SMTPPORT;                                    //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
+
+        //Recipients
+        $mail->setFrom(MAIL_USER);
+        $mail->addAddress(MAIL_NOTIFICATION);     //Add a recipient
+        // $mail->addReplyTo('info@example.com', 'Information');
+        // $mail->addCC('cc@example.com');
+        // $mail->addBCC('bcc@example.com');
+
+        //Attachments
+        // $mail->addAttachment('/var/tmp/file.tar.gz');         //Add attachments
+        // $mail->addAttachment('/tmp/image.jpg', 'new.jpg');    //Optional name
+
+        //Content
+        $mail->isHTML(false);                                  //Set email format to HTML
+        $mail->Subject = 'Mail2Deck Logging';
+        $mail->Body    = $message;
+        // $mail->AltBody = 'This is the body in plain text for non-HTML mail clients';
+
+        $mail->send();
+    } catch (MailerException $e) {
+        print("Message could not be sent. Mailer Error: {$mail->ErrorInfo}\n");
+    }
 }
 
 function extract_attachments($message)
@@ -129,6 +164,7 @@ function process_mail($email, $inbox)
         printf("Could not add card for mail '%s' from '%s'\n", $data->title, $fromaddress);
         print("  Trying again with alternative message representation...\n");
         $data->description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $plaintext);
+
         try {
             $response = $newcard->addCard($data, $mailSender, $board, $stackid);
         } catch (Exception $e) {
@@ -159,19 +195,24 @@ function process_mail_bunch($startmail, $bunchsize)
     $emails_todo = array_slice($emails, $startmail, $bunchsize);
     $iemail = $startmail;
     foreach ($emails_todo as $email) {
-        printf("%d\n", $iemail++);
         try {
+            printf("Mail number %d\n", $iemail); // debugging
             process_mail($email, $inbox);
         } catch (Mail2DeckException $e) {
             if (MAIL_NOTIFICATION) {
-                $subject = sprintf("Could not process mail '%s' from '%s'", $e->subject, $e->sender);
-                $message = $e->getMessage();
-                printf("%s:\n%s\n", $subject, $message);
+                $message = sprintf(
+                    "Could not process mail '%s' from '%s':\n%s",
+                    $e->subject,
+                    $e->sender,
+                    $e->getMessage()
+                );
+                printf("Mail number %d\n%s\n", $iemail, $message);
                 printf("Sending mail about failure to %s\n", MAIL_NOTIFICATION);
-                // $inbox->sendmail(MAIL_NOTIFICATION, $subject, $message);
+                send_logging_mail($message);
             }
             return;
         }
+        $iemail++;
     }
 }
 
