@@ -213,12 +213,7 @@ function process_mail($email, $inbox)
     $fromaddress = $message->getHeaderValue('From');
     $date = $message->getHeaderValue('Date');
     $html = $message->getHtmlContent();
-    // $charset = $message->getContentTransferEncoding();
-    // $html = $message->getHtmlContent(0, "UTF-8");
-    // $html = decode_special_chars($html);
-    // $html = quoted_printable_decode($html);
     $plaintext = $message->getTextContent();
-    // $plaintext = decode_special_chars($plaintext);
     $subject = $message->getHeaderValue('Subject');
 
     $datestamp = strtotime($date);
