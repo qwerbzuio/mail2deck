@@ -88,7 +88,7 @@ function extract_attachments($message)
     return $attachments;
 }
 
-function process_mail($email, $inbox)
+function process_mail($email, $iemail, $inbox)
 {
     // use an instance of MailMimeParser as a class dependency
     $raw = $inbox->fetchMessageBody($email, "");
@@ -96,14 +96,19 @@ function process_mail($email, $inbox)
     $fromaddress = $message->getHeaderValue('From');
     $date = $message->getHeaderValue('Date');
     $subject = $message->getHeaderValue('Subject');
+
+    printf("Processing mail #%d '%s' from '%s' sent on '%s'\n", $iemail, $subject, $fromaddress, $date);
+
     $html = $message->getHtmlContent();
     $plaintext = $message->getTextContent();
     // replace hyperlinks
-    $plaintext = preg_replace(
-        '#((https?|ftp)://(\S*?\.\S*?))([\s)\[\]{},;"\':<]|\.\s|$)#i',
-        "[$1]($1)",
-        $plaintext
-    );
+    if ($plaintext) {
+        $plaintext = preg_replace(
+            '#((https?|ftp)://(\S*?\.\S*?))([\s)\[\]{},;"\':<]|\.\s|$)#i',
+            "[$1]($1)",
+            $plaintext
+        );
+    }
 
     $datestamp = strtotime($date);
     if (FILTER_DATE_BEGIN) {
@@ -188,16 +193,24 @@ function process_mail_bunch($startmail, $bunchsize)
     $inbox = new MailClass();
 
     $which = 'UNSEEN';
-    $which = 'ALL'; // for initialization
+    if ($startmail != null) {
+        // for initialization: if $startmail is given, process those mails
+        $which = 'ALL';
+    }
+
     $emails = $inbox->getNewMessages($which);
+
+    if (!$emails) {
+        print("No mail\n");
+        return;
+    }
 
     $emails_todo = array_slice($emails, $startmail, $bunchsize);
     $iemail = $startmail;
     foreach ($emails_todo as $email) {
         $errormsg = '';
         try {
-            printf("Mail number %d\n", $iemail); // debugging
-            process_mail($email, $inbox);
+            process_mail($email, $iemail, $inbox);
         } catch (Mail2DeckException $e) {
             $errormsg = sprintf(
                 "Could not process mail #%d '%s' from '%s':\n%s",
@@ -226,10 +239,12 @@ function process_mail_bunch($startmail, $bunchsize)
 
 function process_mails($argv)
 {
-    $startmail = 0;
+    $startmail = null;
     $mailcount = null;
 
-    # for testing
+    // for initialization:
+    // if $startmail is given, process all mails,
+    // specified by commandline parameters
     if (count($argv) > 1) {
         $startmail = $argv[1];
     }
