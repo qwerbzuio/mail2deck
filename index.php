@@ -125,7 +125,6 @@ function process_mail($email, $iemail, $inbox)
         }
         $mdtext = (new ConvertToMD($html))->execute();
     } else {
-        print("Warning: Detected empty HTML, using plain part instead.\n");
         $mdtext = $plaintext;
     }
 
