@@ -25,31 +25,23 @@ function send_logging_mail($message)
 
     try {
         //Server settings
-        // $mail->SMTPDebug = SMTP::DEBUG_SERVER;                      //Enable verbose debug output
-        $mail->isSMTP();                                            //Send using SMTP
-        $mail->Host       = MAIL_SERVER_SMTP;                     //Set the SMTP server to send through
-        $mail->SMTPAuth   = true;                                   //Enable SMTP authentication
-        $mail->Username   = MAIL_USER;                     //SMTP username
-        $mail->Password   = MAIL_PASSWORD;                               //SMTP password
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            //Enable implicit TLS encryption
-        $mail->Port       = MAIL_SERVER_SMTPPORT;                                    //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
+        // $mail->SMTPDebug = SMTP::DEBUG_SERVER;
+        $mail->isSMTP();
+        $mail->Host       = MAIL_SERVER_SMTP;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = MAIL_USER;
+        $mail->Password   = MAIL_PASSWORD;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        $mail->Port       = MAIL_SERVER_SMTPPORT;
 
         //Recipients
         $mail->setFrom(MAIL_USER);
-        $mail->addAddress(MAIL_NOTIFICATION);     //Add a recipient
-        // $mail->addReplyTo('info@example.com', 'Information');
-        // $mail->addCC('cc@example.com');
-        // $mail->addBCC('bcc@example.com');
-
-        //Attachments
-        // $mail->addAttachment('/var/tmp/file.tar.gz');         //Add attachments
-        // $mail->addAttachment('/tmp/image.jpg', 'new.jpg');    //Optional name
+        $mail->addAddress(MAIL_NOTIFICATION);
 
         //Content
-        $mail->isHTML(false);                                  //Set email format to HTML
+        $mail->isHTML(false);
         $mail->Subject = 'Mail2Deck Logging';
         $mail->Body    = $message;
-        // $mail->AltBody = 'This is the body in plain text for non-HTML mail clients';
 
         $mail->send();
     } catch (MailerException $e) {
