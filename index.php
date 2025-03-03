@@ -143,6 +143,7 @@ function process_mail($email, $iemail, $inbox)
     $data->type = "plain";
     $data->order = -time();
     $data->description = $mdtext;
+
     $data->attachments = extract_attachments($message);
     $data->duedate = $date;
 

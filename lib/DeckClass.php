@@ -138,6 +138,21 @@ class DeckClass
             if ($params->dueDate) {
                 $data->duedate = $params->dueDate;
             }
+
+            $maxlength = 5000; // +/- empirical maxlength for description in Deck-cards
+            $desc_length = strlen($data->description);
+            $full_description = null;
+            if ($desc_length > $maxlength) {
+                printf("Warning: description length (%d) exceeds soft-limit of %d characters. Shortening text.\n", $desc_length, $maxlength);
+                $full_description = $data->description;
+                $data->description = substr($data->description, 0, $maxlength);
+                $data->description = sprintf(
+                    "*Achtung: Der Mailtext war zu lang und wurde gekürzt. Der vollständige Mailtext befindet sich bei den Anhängen ('%s.md')*\n\n%s",
+                    $data->title,
+                    $data->description
+                );
+            }
+
             $card = $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}/cards", $data);
             if (! $card) {
                 $stack = $this->apiCall("GET", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$params->board}/stacks/{$stackid}");
@@ -145,6 +160,10 @@ class DeckClass
             }
             $card->board = $params->board;
             $card->stack = $stackid;
+
+            if ($full_description) {
+                $this->addDescriptionAttachments($card, $data->title, $full_description);
+            }
 
             if ($this->responseCode == 200) {
                 if ($data->attachments) {
@@ -174,6 +193,18 @@ class DeckClass
             $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$card->board}/stacks/{$card->stack}/cards/{$card->id}/attachments?type=file", $data, true);
             unlink($file);
         }
+    }
+
+    private function addDescriptionAttachments($card, $title, $description)
+    {
+        $fullPath = getcwd() . "/attachments/"; //get full path to attachments directory
+        $file = $fullPath . $title . ".md";
+        file_put_contents($file, $description);
+        $data = array(
+            'file' => new \CURLFile($file)
+        );
+        $this->apiCall("POST", NC_SERVER . "/index.php/apps/deck/api/v1.0/boards/{$card->board}/stacks/{$card->stack}/cards/{$card->id}/attachments?type=file", $data, true);
+        unlink($file);
     }
 
     public function assignUser($card, $mailUser)
