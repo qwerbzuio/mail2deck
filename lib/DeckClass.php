@@ -129,7 +129,7 @@ class DeckClass
         return $boardStack;
     }
 
-    public function addCard($data, $user, $board, $stackid)
+    public function addCard($data, $board, $stackid)
     {
         $params = $this->getParameters($data->title, $board);
 
@@ -146,10 +146,7 @@ class DeckClass
             $card->board = $params->board;
             $card->stack = $stackid;
 
-            if ($params->userId) $user->userId = $params->userId;
-
             if ($this->responseCode == 200) {
-                if (ASSIGN_SENDER || $params->userId) $this->assignUser($card, $user);
                 if ($data->attachments) {
                     $this->addAttachments($card, $data->attachments);
                 }

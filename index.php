@@ -134,10 +134,6 @@ function process_mail($email, $iemail, $inbox)
     } else {
         print("Warning: Detected empty HTML, using plain part instead.\n");
         $mdtext = $plaintext;
-
-        // $message = sprintf("Empty HTML part in mail from from '%s'\n", $fromaddress);
-        // send_logging_mail($message);
-
     }
 
     $mdtext = sprintf("(From: <%s>)\n\n%s", $fromaddress, $mdtext);
@@ -150,9 +146,6 @@ function process_mail($email, $iemail, $inbox)
     $data->attachments = extract_attachments($message);
     $data->duedate = $date;
 
-    $mailSender = new stdClass();
-    // $mailSender->userId = $overview->reply_to[0]->mailbox;
-
     $board = DEFAULT_BOARD_NAME;
     $stack = DEFAULT_DECK_NAME;
 
@@ -163,14 +156,14 @@ function process_mail($email, $iemail, $inbox)
     }
 
     try {
-        $response = $newcard->addCard($data, $mailSender, $board, $stackid);
+        $response = $newcard->addCard($data, $board, $stackid);
     } catch (Exception $e) {
         printf("Could not add card for mail '%s' from '%s'\n", $data->title, $fromaddress);
         print("  Trying again with alternative message representation...\n");
         $data->description = sprintf("(From: <%s>)\n\n%s", $fromaddress, $plaintext);
 
         try {
-            $response = $newcard->addCard($data, $mailSender, $board, $stackid);
+            $response = $newcard->addCard($data, $board, $stackid);
         } catch (Exception $e) {
             print("  ... still not possible. Giving up on this.\n");
             $newex = new Mail2DeckException($e->getMessage());
@@ -180,15 +173,12 @@ function process_mail($email, $iemail, $inbox)
         }
     }
 
-    // print_r($response);
-    // $mailSender->origin .= "{$overview->reply_to[0]->mailbox}@{$overview->reply_to[0]->host}";
-
     if (!$response) {
         foreach ($data->attachments as $attachment) unlink(getcwd() . "/attachments/" . $attachment);
     }
 }
 
-function process_mail_bunch($startmail, $bunchsize)
+function process_mail_bunch($startmail, $nmails)
 {
     $inbox = new MailClass();
 
@@ -196,6 +186,7 @@ function process_mail_bunch($startmail, $bunchsize)
     if ($startmail != null) {
         // for initialization: if $startmail is given, process those mails
         $which = 'ALL';
+        printf("Processing %d mails, starting at #%d\n", $nmails, $startmail);
     }
 
     $emails = $inbox->getNewMessages($which);
@@ -205,7 +196,7 @@ function process_mail_bunch($startmail, $bunchsize)
         return;
     }
 
-    $emails_todo = array_slice($emails, $startmail, $bunchsize);
+    $emails_todo = array_slice($emails, $startmail, $nmails);
     $iemail = $startmail;
     foreach ($emails_todo as $email) {
         $errormsg = '';
