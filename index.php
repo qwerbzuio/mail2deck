@@ -80,6 +80,7 @@ function extract_attachments($message)
     return $attachments;
 }
 
+// @return true on success
 function process_mail($email, $iemail, $inbox)
 {
     // use an instance of MailMimeParser as a class dependency
@@ -88,6 +89,20 @@ function process_mail($email, $iemail, $inbox)
     $fromaddress = $message->getHeaderValue('From');
     $date = $message->getHeaderValue('Date');
     $subject = $message->getHeaderValue('Subject');
+
+    $datestamp = strtotime($date);
+    if (FILTER_DATE_BEGIN) {
+        if ($datestamp < strtotime(FILTER_DATE_BEGIN)) {
+            printf("Skipping too old mail from %s\n", $date);
+            return false;
+        }
+    }
+    if (FILTER_DATE_END) {
+        if ($datestamp >= strtotime(FILTER_DATE_END)) {
+            printf("Skipping too new mail from %s\n", $date);
+            return false;
+        }
+    }
 
     printf("Processing mail #%d '%s' from '%s' sent on '%s'\n", $iemail, $subject, $fromaddress, $date);
 
@@ -100,20 +115,6 @@ function process_mail($email, $iemail, $inbox)
             "[$1]($1)",
             $plaintext
         );
-    }
-
-    $datestamp = strtotime($date);
-    if (FILTER_DATE_BEGIN) {
-        if ($datestamp < strtotime(FILTER_DATE_BEGIN)) {
-            printf("Skipping too old mail from %s\n", $date);
-            return;
-        }
-    }
-    if (FILTER_DATE_END) {
-        if ($datestamp >= strtotime(FILTER_DATE_END)) {
-            printf("Skipping too new mail from %s\n", $date);
-            return;
-        }
     }
 
     // extract body part and convert to markdown
@@ -169,6 +170,8 @@ function process_mail($email, $iemail, $inbox)
     if (!$response) {
         foreach ($data->attachments as $attachment) unlink(getcwd() . "/attachments/" . $attachment);
     }
+
+    return true;
 }
 
 function process_mail_bunch($startmail, $nmails)
@@ -179,7 +182,11 @@ function process_mail_bunch($startmail, $nmails)
     if ($startmail != null) {
         // for initialization: if $startmail is given, process those mails
         $which = 'ALL';
-        printf("Processing %d mails, starting at #%d\n", $nmails, $startmail);
+        if ($nmails) {
+            printf("Processing %d mails, starting at #%d\n", $nmails, $startmail);
+        } else {
+            printf("Processing ALL mails, starting at #%d\n", $startmail);
+        }
     }
 
     $emails = $inbox->getNewMessages($which);
@@ -189,12 +196,19 @@ function process_mail_bunch($startmail, $nmails)
         return;
     }
 
-    $emails_todo = array_slice($emails, $startmail, $nmails);
+    $emails_todo = array_slice($emails, $startmail);
     $iemail = $startmail;
+    $processed_mails = 0;
     foreach ($emails_todo as $email) {
+        if ($nmails && $processed_mails >= $nmails) {
+            break;
+        }
         $errormsg = '';
         try {
-            process_mail($email, $iemail, $inbox);
+            $processed = process_mail($email, $iemail, $inbox);
+            if ($processed) {
+                ++$processed_mails;
+            }
         } catch (Mail2DeckException $e) {
             $errormsg = sprintf(
                 "Could not process mail #%d '%s' from '%s':\n%s",
