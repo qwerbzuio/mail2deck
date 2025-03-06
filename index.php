@@ -224,6 +224,7 @@ function process_mail_bunch($startmail, $nmails)
             );
         }
         if ($errormsg) {
+            ++$processed_mails;
             if (MAIL_NOTIFICATION) {
                 printf("Mail number %d\n%s\n", $iemail, $errormsg);
                 printf("Sending mail about failure to %s\n", MAIL_NOTIFICATION);
