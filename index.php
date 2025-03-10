@@ -195,10 +195,12 @@ function process_mail_bunch($startmail, $nmails)
         return;
     }
 
-    $emails_todo = array_slice($emails, $startmail);
+    if ($startmail) {
+        $emails = array_slice($emails, $startmail);
+    }
     $iemail = $startmail;
     $processed_mails = 0;
-    foreach ($emails_todo as $email) {
+    foreach ($emails as $email) {
         if ($nmails && $processed_mails >= $nmails) {
             break;
         }
